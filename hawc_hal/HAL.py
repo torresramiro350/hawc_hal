@@ -452,9 +452,9 @@ class HAL(PluginPrototype):
 
             # obtain the excess, background, and expected excess at
             # each radial bin
-            data: ndarray = data_analysis_bin.observation_map.as_partial()
-            bkg: ndarray = data_analysis_bin.background_map.as_partial()
-            mdl: ndarray = self._get_model_map(
+            data = data_analysis_bin.observation_map.as_partial()
+            bkg = data_analysis_bin.background_map.as_partial()
+            mdl = self._get_model_map(
                 energy_id, n_point_sources, n_ext_sources
             ).as_partial()
 
