@@ -62,7 +62,7 @@ class DataAnalysisBin:
             df.set_index(self._active_pixels_ids, inplace=True)
 
         # Some metadata
-        meta = {
+        meta: dict[str, int | float] = {
             "scheme": 0 if self._scheme == "RING" else 1,
             "n_transits": self._n_transits,
             "nside": self._nside,
