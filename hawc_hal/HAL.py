@@ -460,13 +460,9 @@ class HAL(PluginPrototype):
 
             # select the information only from the pixels that are within the radial
             # bin from origin of radial profile
-            this_data = data[bin_active_pixel_indexes]
-            this_bkg = bkg[bin_active_pixel_indexes]
-            this_model = mdl[bin_active_pixel_indexes]
-
-            this_data_tot = this_data.sum()
-            this_bkg_tot = this_bkg.sum()
-            this_model_tot = this_model.sum()
+            this_data_tot = data[bin_active_pixel_indexes].sum()
+            this_bkg_tot = bkg[bin_active_pixel_indexes].sum()
+            this_model_tot = mdl[bin_active_pixel_indexes].sum()
 
             background[i] = this_bkg_tot
             observation[i] = this_data_tot

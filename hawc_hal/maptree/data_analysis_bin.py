@@ -18,7 +18,7 @@ class DataAnalysisBin:
         active_pixels_ids: ndint,
         n_transits: float,
         scheme: str = "RING",
-    ):
+    ) -> None:
         # Get nside
         self._nside = observation_hpx_map.nside
 

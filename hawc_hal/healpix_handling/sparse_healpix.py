@@ -23,22 +23,22 @@ class HealpixWrapperBase:
     sparse or dense
     """
 
-    def __init__(self, sparse: bool, nside: int):
+    def __init__(self, sparse: bool, nside: int) -> None:
         self._nside = nside
         self._npix = hp.nside2npix(self._nside)
         self._pixel_area = hp.nside2pixarea(self._nside, degrees=True)
         self._sparse = sparse
 
     @property
-    def is_sparse(self):
+    def is_sparse(self) -> bool:
         return self._sparse
 
     @property
-    def nside(self):
+    def nside(self) -> int:
         return self._nside
 
     @property
-    def npix(self):
+    def npix(self) -> int:
         """
         :return: total number of pixels for this nside. Note that mymap.npix is equivalent to
         healpy.nside2npix(mymap.nside)
@@ -46,7 +46,7 @@ class HealpixWrapperBase:
         return self._npix
 
     @property
-    def pixel_area(self):
+    def pixel_area(self) -> float:
         """
         :return: area (solid angle) of the healpix pixel in sq. degrees
         """
@@ -58,7 +58,7 @@ class HealpixWrapperBase:
     def as_partial(self) -> ndarray:  # pragma: no cover
         return _not_implemented()
 
-    def to_pandas(self):
+    def to_pandas(self) -> pd.Series:
         """
         Returns a pandas Series with the dense representation of the data
 
