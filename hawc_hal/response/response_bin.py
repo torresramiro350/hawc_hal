@@ -1,18 +1,20 @@
-""" Generate ResponseBin for HAWC Likelihood plugin"""
+"""Generate ResponseBin for HAWC Likelihood plugin"""
+
 from dataclasses import dataclass, field
 
 import boost_histogram as bh
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-from typing_extensions import Self
+from typing import TypeAlias as T
+from typing import Self
 
 from ..psf_fast import InvalidPSF, InvalidPSFError, PSFWrapper
 
 # from typing import Self # available on python 3.11+
 # NOTE: definition of a few constants to be used thorought the module
 LOG_BASE: int = 10
-ndarray = NDArray[np.float64]
+ndarray: T = NDArray[np.float64]
 dataframe = pd.DataFrame
 
 
@@ -70,40 +72,41 @@ class EnergyBin:
         self._upper_edges = np.array(self.signal_events.axes.edges[0][1:])
 
     @property
-    def get_differential_fluxes(self) -> np.ndarray:
+    def get_differential_fluxes(self) -> ndarray:
         """Calculate the differential fluxes with log energy values"""
         self._get_edges()
         differential_fluxes = np.array(
             [
                 self._log_log_spectrum(log_energy, self.log_log_shape)
                 for log_energy in self._centers
-            ]
+            ],
+            dtype=np.float64,
         )
 
         return LOG_BASE**differential_fluxes
 
     @property
-    def get_energy_bin_low(self) -> np.ndarray:
+    def get_energy_bin_low(self) -> ndarray:
         """Energy bins lower edge"""
         return LOG_BASE**self._lower_edges
 
     @property
-    def get_energy_bin_upper(self) -> np.ndarray:
+    def get_energy_bin_upper(self) -> ndarray:
         """Energy bins upper edge"""
         return LOG_BASE**self._upper_edges
 
     @property
-    def get_energy_bin_centers(self) -> np.ndarray:
+    def get_energy_bin_centers(self) -> ndarray:
         """Energy bins center edge"""
         return LOG_BASE**self._centers
 
     @property
-    def get_signal_events(self) -> np.ndarray:
+    def get_signal_events(self) -> ndarray:
         """Retrieve simulated signal events"""
         return self.signal_events.values()
 
     @property
-    def get_bkg_events(self) -> np.ndarray:
+    def get_bkg_events(self) -> ndarray:
         """Retrieve simulated background events"""
         return self.bkg_events.values()
 
@@ -121,17 +124,17 @@ class ResponseBin:
 
     def __init__(
         self,
-        name,
-        min_dec,
-        max_dec,
-        dec_center,
-        sim_n_sig_events,
-        sim_n_bg_events,
-        sim_energy_bin_low,
-        sim_energy_bin_centers,
-        sim_energy_bin_hi,
-        sim_differential_photon_fluxes,
-        sim_signal_events_per_bin,
+        name: str,
+        min_dec: ndarray | float,
+        max_dec: ndarray | float,
+        dec_center: ndarray | float,
+        sim_n_sig_events: ndarray | float,
+        sim_n_bg_events: ndarray | float,
+        sim_energy_bin_low: ndarray,
+        sim_energy_bin_centers: ndarray,
+        sim_energy_bin_hi: ndarray,
+        sim_differential_photon_fluxes: ndarray,
+        sim_signal_events_per_bin: ndarray,
         psf,
     ):
         self._name = name
@@ -217,8 +220,8 @@ class ResponseBin:
         # Now read the various TF1(s) for PSF, signal and background
         # The sum of the histogram is the total number of simulated events detected
         # in this analysis bin_name
-        sim_n_sig_events = energy_bin.get_signal_events.sum()
-        sim_n_bg_events = energy_bin.get_bkg_events.sum()
+        sim_n_sig_events: float = energy_bin.get_signal_events.sum()
+        sim_n_bg_events: float = energy_bin.get_bkg_events.sum()
 
         # NOTE: uproot doesn't have the ability to read and evaluate TF1
         # but we pass the psf_params to the PSFWrapper class which can
@@ -240,7 +243,7 @@ class ResponseBin:
             psf_fun,
         )
 
-    def to_pandas(self) -> tuple[dataframe, dict[str, ndarray], dataframe]:
+    def to_pandas(self) -> tuple[dataframe, dict[str, ndarray | float], dataframe]:
         """Organizes information a response ROOT file into a dataframe for later storage
         in a file with HDF5 format
 
@@ -250,7 +253,7 @@ class ResponseBin:
         """
 
         # In the metadata let's save all single values (floats)
-        meta: dict[str, ndarray] = {
+        meta: dict[str, ndarray | float] = {
             "min_dec": self._min_dec,
             "max_dec": self._max_dec,
             "declination_center": self._dec_center,
