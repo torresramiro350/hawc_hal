@@ -513,7 +513,10 @@ class HAL(PluginPrototype):
         # The area of each ring is then given by the difference between two
         # subsequent circe areas.
         area = np.array(
-            [self._get_excess_background(ra, dec, r + offset * delta_r)[0] for r in radii]
+            [
+                self._get_excess_background(ra, dec, r + offset * delta_r)[0]
+                for r in radii
+            ]
         )
 
         temp = area[1:] - area[:-1]
@@ -521,7 +524,10 @@ class HAL(PluginPrototype):
 
         # signals
         signal = np.array(
-            [self._get_excess_background(ra, dec, r + offset * delta_r)[1] for r in radii]
+            [
+                self._get_excess_background(ra, dec, r + offset * delta_r)[1]
+                for r in radii
+            ]
         )
 
         temp = signal[1:] - signal[:-1]
@@ -529,7 +535,10 @@ class HAL(PluginPrototype):
 
         # backgrounds
         bkg = np.array(
-            [self._get_excess_background(ra, dec, r + offset * delta_r)[2] for r in radii]
+            [
+                self._get_excess_background(ra, dec, r + offset * delta_r)[2]
+                for r in radii
+            ]
         )
 
         temp = bkg[1:] - bkg[:-1]
@@ -540,7 +549,10 @@ class HAL(PluginPrototype):
         # model
         # convert 'top hat' excess into 'ring' excesses.
         model = np.array(
-            [self._get_excess_background(ra, dec, r + offset * delta_r)[3] for r in radii]
+            [
+                self._get_excess_background(ra, dec, r + offset * delta_r)[3]
+                for r in radii
+            ]
         )
 
         temp = model[1:] - model[:-1]
