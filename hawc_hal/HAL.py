@@ -609,7 +609,14 @@ class HAL(PluginPrototype):
         excess_error = np.sqrt(np.sum(counts * weight * weight / (area * area), axis=1))
         excess_model = np.average(model / area, weights=weight, axis=1)
 
-        return radii, excess_model, excess_data, excess_error, sorted(plane_ids)
+        return (
+            radii,
+            excess_model,
+            excess_data,
+            excess_error,
+            sorted(plane_ids),  # pyright:ignore
+            w[0, :],
+        )
 
     def plot_radial_profile(
         self,
@@ -634,7 +641,7 @@ class HAL(PluginPrototype):
         :return: radial profile figure and a dataframe with all values for easy retrieval
         """
 
-        (radii, excess_model, excess_data, excess_error, plane_ids) = (
+        (radii, excess_model, excess_data, excess_error, plane_ids, weights) = (
             self._get_radial_profile(
                 ra,
                 dec,
