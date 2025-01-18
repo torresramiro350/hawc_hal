@@ -436,16 +436,15 @@ class HAL(PluginPrototype):
             this_nside, center, radius_radians, inclusive=False
         )
 
-        bin_active_pixel_indexes = np.intersect1d(
-            self._active_pixels[self._active_planes[0]],
-            radial_bin_pixels,
-            return_indices=True,
-        )[1]
+        # select the pixels that are only within the radial bin
+        pixels_within_rad_bin = np.isin(
+            self._active_pixels[self._active_planes[0]], radial_bin_pixels
+        )
 
         # calculate the areas per bin by the product
         # of pixel area by the number of pixels at each radial bin
         this_area = hp.nside2pixarea(this_nside) * radial_bin_pixels.shape[0]
-        area = np.repeat(this_area, len(self._active_planes))
+        area = np.full(this_area, len(self._active_planes))
 
         for i, energy_id in enumerate(self._active_planes):
             data_analysis_bin: DataAnalysisBin = self._maptree[energy_id]
@@ -464,9 +463,9 @@ class HAL(PluginPrototype):
             this_bkg = bkg[bin_active_pixel_indexes]
             this_model = mdl[bin_active_pixel_indexes]
 
-            this_data_tot = this_data.sum()
-            this_bkg_tot = this_bkg.sum()
-            this_model_tot = this_model.sum()
+            this_data_tot = data[pixels_within_rad_bin].sum()
+            this_bkg_tot = bkg[pixels_within_rad_bin].sum()
+            this_model_tot = mdl[pixels_within_rad_bin].sum()
 
             background[i] = this_bkg_tot
             observation[i] = this_data_tot
