@@ -278,9 +278,9 @@ class HAL(PluginPrototype):
 
         # Check for legal input
         if bin_id_min is not None:
-            assert (
-                bin_id_max is not None
-            ), "If you provide a minimum bin, you also need to provide a maximum bin."
+            assert bin_id_max is not None, (
+                "If you provide a minimum bin, you also need to provide a maximum bin."
+            )
 
             # Make sure they are integers
             bin_id_min = int(bin_id_min)
@@ -290,14 +290,16 @@ class HAL(PluginPrototype):
             for this_bin in range(bin_id_min, bin_id_max + 1):
                 this_bin = str(this_bin)
                 if this_bin not in self._all_planes:
-                    raise ValueError(f"Bin {this_bin} is not contained in this maptree.")
+                    raise ValueError(
+                        f"Bin {this_bin} is not contained in this maptree."
+                    )
 
                 self._active_planes.append(this_bin)
 
         else:
-            assert (
-                bin_id_max is None
-            ), "If you provie a maximum bin, you also need to provide a minimum bin."
+            assert bin_id_max is None, (
+                "If you provie a maximum bin, you also need to provide a minimum bin."
+            )
 
             assert bin_list is not None
 
@@ -306,7 +308,9 @@ class HAL(PluginPrototype):
             for this_bin in bin_list:
                 # if not this_bin in self._all_planes:
                 if this_bin not in self._all_planes:
-                    raise ValueError(f"Bin {this_bin} is not contained in this maptree.")
+                    raise ValueError(
+                        f"Bin {this_bin} is not contained in this maptree."
+                    )
 
                 self._active_planes.append(this_bin)
 
@@ -459,9 +463,6 @@ class HAL(PluginPrototype):
 
             # select the information only from the pixels that are within the radial
             # bin from origin of radial profile
-            this_data = data[bin_active_pixel_indexes]
-            this_bkg = bkg[bin_active_pixel_indexes]
-            this_model = mdl[bin_active_pixel_indexes]
 
             this_data_tot = data[pixels_within_rad_bin].sum()
             this_bkg_tot = bkg[pixels_within_rad_bin].sum()
@@ -647,10 +648,10 @@ class HAL(PluginPrototype):
 
         # add a dataframe for easy retrieval for calculations of surface
         # brighntess, if necessary.
-        df = pd.DataFrame(columns=["Excess", "Bkg", "Model"], index=radii)
+        df = pd.DataFrame(columns=["Excess", "Error", "Model"], index=radii)
         df.index.name = "Radii"
         df["Excess"] = excess_data
-        df["Bkg"] = excess_error
+        df["Error"] = excess_error
         df["Model"] = excess_model
 
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -667,7 +668,9 @@ class HAL(PluginPrototype):
 
         plt.plot(radii, excess_model, color="red", label="Model")
 
-        plt.legend(bbox_to_anchor=(1.0, 1.0), loc="upper right", numpoints=1, fontsize=16)
+        plt.legend(
+            bbox_to_anchor=(1.0, 1.0), loc="upper right", numpoints=1, fontsize=16
+        )
         plt.axhline(0, color="deepskyblue", linestyle="--")
 
         x_limits = [0, max_radius]
@@ -774,7 +777,9 @@ class HAL(PluginPrototype):
 
         yerr = [yerr_high, yerr_low]
 
-        return self._plot_spectrum(net_counts, yerr, model_only, residuals, residuals_err)
+        return self._plot_spectrum(
+            net_counts, yerr, model_only, residuals, residuals_err
+        )
 
     def _plot_spectrum(self, net_counts, yerr, model_only, residuals, residuals_err):
         fig, subs = plt.subplots(
@@ -842,7 +847,9 @@ class HAL(PluginPrototype):
             assert (
                 n_point_sources == self._convolved_point_sources.n_sources_in_cache
                 and n_ext_sources == self._convolved_ext_sources.n_sources_in_cache
-            ), "The number of sources has changed. Please re-assign the model to the plugin."
+            ), (
+                "The number of sources has changed. Please re-assign the model to the plugin."
+            )
 
         # This will hold the total log-likelihood
 
@@ -1047,7 +1054,9 @@ class HAL(PluginPrototype):
             )
 
             # Now multiply by the pixel area of the new map to go back to flux
-            this_model_map_hpx *= hp.nside2pixarea(data_analysis_bin.nside, degrees=True)
+            this_model_map_hpx *= hp.nside2pixarea(
+                data_analysis_bin.nside, degrees=True
+            )
 
         else:
             # No sources
@@ -1172,7 +1181,9 @@ class HAL(PluginPrototype):
             subs[i][0].set_title("model, bin {}".format(data_analysis_bin.name))
 
             # Plot data map
-            images[1] = subs[i][1].imshow(proj_data, origin="lower", vmin=vmin, vmax=vmax)
+            images[1] = subs[i][1].imshow(
+                proj_data, origin="lower", vmin=vmin, vmax=vmax
+            )
             subs[i][1].set_title("excess, bin {}".format(data_analysis_bin.name))
 
             # Plot background map.
@@ -1292,7 +1303,9 @@ class HAL(PluginPrototype):
             raise ValueError(f"{plane_id} not a plane in the current model")
 
         model_map = SparseHealpix(
-            self._get_expectation(self._maptree[plane_id], plane_id, n_pt_src, n_ext_src),
+            self._get_expectation(
+                self._maptree[plane_id], plane_id, n_pt_src, n_ext_src
+            ),
             self._active_pixels[plane_id],
             self._maptree[plane_id].observation_map.nside,
         )
@@ -1365,13 +1378,17 @@ class HAL(PluginPrototype):
         if return_map:
             return new_map_tree
 
-    def write_model_map(self, file_name, poisson_fluctuate=False, test_return_map=False):
+    def write_model_map(
+        self, file_name, poisson_fluctuate=False, test_return_map=False
+    ):
         """
         This function writes the model map to a file.
         The interface is based off of HAWCLike for consistency
         """
         if test_return_map:
-            log.warning("test_return_map=True should only be used for testing purposes!")
+            log.warning(
+                "test_return_map=True should only be used for testing purposes!"
+            )
         return self._write_a_map(file_name, "model", poisson_fluctuate, test_return_map)
 
     def write_residual_map(self, file_name, test_return_map=False):
@@ -1380,5 +1397,7 @@ class HAL(PluginPrototype):
         The interface is based off of HAWCLike for consistency
         """
         if test_return_map:
-            log.warning("test_return_map=True should only be used for testing purposes!")
+            log.warning(
+                "test_return_map=True should only be used for testing purposes!"
+            )
         return self._write_a_map(file_name, "residual", False, test_return_map)
