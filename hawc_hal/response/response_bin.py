@@ -1,4 +1,5 @@
-""" Generate ResponseBin for HAWC Likelihood plugin"""
+"""Generate ResponseBin for HAWC Likelihood plugin"""
+
 from dataclasses import dataclass, field
 
 import boost_histogram as bh
@@ -29,7 +30,7 @@ class EnergyBin:
 
     bin_name: str
     signal_events: bh.Histogram
-    bkg_events: bh.Histogram
+    # bkg_events: bh.Histogram
     log_log_params: np.ndarray
     log_log_shape: str
 
@@ -102,10 +103,10 @@ class EnergyBin:
         """Retrieve simulated signal events"""
         return self.signal_events.values()
 
-    @property
-    def get_bkg_events(self) -> np.ndarray:
-        """Retrieve simulated background events"""
-        return self.bkg_events.values()
+    # @property
+    # def get_bkg_events(self) -> np.ndarray:
+    #     """Retrieve simulated background events"""
+    #     return self.bkg_events.values()
 
     @property
     def get_bin_name(self) -> str:
@@ -126,7 +127,6 @@ class ResponseBin:
         max_dec,
         dec_center,
         sim_n_sig_events,
-        sim_n_bg_events,
         sim_energy_bin_low,
         sim_energy_bin_centers,
         sim_energy_bin_hi,
@@ -139,7 +139,6 @@ class ResponseBin:
         self._max_dec = max_dec
         self._dec_center = dec_center
         self._sim_n_sig_events = sim_n_sig_events
-        self._sim_n_bg_events = sim_n_bg_events
         self._sim_energy_bin_low = sim_energy_bin_low
         self._sim_energy_bin_centers = sim_energy_bin_centers
         self._sim_energy_bin_hi = sim_energy_bin_hi
@@ -174,7 +173,7 @@ class ResponseBin:
         cls,
         analysis_bin_id: str,
         energy_hist: bh.Histogram,
-        energy_hist_bkg: bh.Histogram,
+        # energy_hist_bkg: bh.Histogram,
         psf_fit_params: ndarray,
         log_log_params: ndarray,
         log_log_shape: str,
@@ -201,8 +200,12 @@ class ResponseBin:
         # NOTE: Load all the information to the EnergyBin class for each bin_name
         # and for the complex processing of the differential flux,
         # energy lower_edges, centers, upper_edges
+        # analysis_bin_id, energy_hist, energy_hist_bkg, log_log_params, log_log_shape
         energy_bin = EnergyBin(
-            analysis_bin_id, energy_hist, energy_hist_bkg, log_log_params, log_log_shape
+            analysis_bin_id,
+            energy_hist,
+            log_log_params,
+            log_log_shape,
         )
 
         # Now let's see what has been simulated, i.e., the differential flux
@@ -218,7 +221,6 @@ class ResponseBin:
         # The sum of the histogram is the total number of simulated events detected
         # in this analysis bin_name
         sim_n_sig_events = energy_bin.get_signal_events.sum()
-        sim_n_bg_events = energy_bin.get_bkg_events.sum()
 
         # NOTE: uproot doesn't have the ability to read and evaluate TF1
         # but we pass the psf_params to the PSFWrapper class which can
@@ -231,7 +233,6 @@ class ResponseBin:
             max_dec,
             dec_center,
             sim_n_sig_events,
-            sim_n_bg_events,
             sim_energy_bin_low,
             sim_energy_bin_centers,
             sim_energy_bin_high,
@@ -255,7 +256,6 @@ class ResponseBin:
             "max_dec": self._max_dec,
             "declination_center": self._dec_center,
             "n_sim_signal_events": self._sim_n_sig_events,
-            "n_sim_bkg_events": self._sim_n_bg_events,
         }
 
         # Now make a dataframe containing the elements of the simulation
@@ -299,9 +299,6 @@ class ResponseBin:
         n_sim_signal_events = (
             w1 * self._sim_n_sig_events + w2 * other_response_bin._sim_n_sig_events
         )
-        n_sim_bkg_events = (
-            w1 * self._sim_n_bg_events + w2 * other_response_bin._sim_n_bg_events
-        )
 
         # We assume that the bin centers are the same
         assert np.allclose(
@@ -330,7 +327,7 @@ class ResponseBin:
             max_dec,
             dec_center,
             n_sim_signal_events,
-            n_sim_bkg_events,
+            # n_sim_bkg_events,
             self._sim_energy_bin_low,
             self._sim_energy_bin_centers,
             self._sim_energy_bin_hi,
@@ -360,10 +357,6 @@ class ResponseBin:
     @property
     def n_sim_signal_events(self):
         return self._sim_n_sig_events
-
-    @property
-    def n_sim_bkg_events(self):
-        return self._sim_n_bg_events
 
     @property
     def sim_energy_bin_low(self):

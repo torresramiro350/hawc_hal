@@ -53,7 +53,9 @@ def hawc_response_factory(response_file_name: str, n_workers: int = 1):
         extension = os.path.splitext(response_file_name)[-1]
 
         if extension == ".root":
-            new_instance = HAWCResponse.from_root_file(response_file_name, n_workers)
+            new_instance = HAWCResponse.from_root_file(
+                Path(response_file_name), n_workers
+            )
 
         elif extension in [".hd5", ".hdf5", ".hdf"]:
             new_instance = HAWCResponse.from_hdf5(response_file_name)
@@ -91,7 +93,9 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        energy_hist_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
+        energy_hist_prefix = (
+            f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
+        )
         if response_ttree_directory.get(energy_hist_prefix, None) is not None:
             energy_hist = response_ttree_directory[energy_hist_prefix]
 
@@ -105,36 +109,6 @@ class ResponseMetaData:
             energy_hist = response_ttree_directory[energy_hist_prefix]
 
             return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
-
-        raise KeyError("Unknown binning scheme in response file")
-
-    @staticmethod
-    def get_energy_bkg_hist(
-        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
-    ) -> tuple[int, str, bh.Histogram]:
-        """Retrieves the background energy histogram from response file
-
-        :param response_ttree_directory: uproot read only directory for response file
-        :param dec_id: declination bin id
-        :param bin_id: active analysis bin id
-        :raises KeyError: raised if the binning scheme is not recognized
-        :return: tuple of declination bin id, analysis bin id, and background energy histogram
-        """
-
-        energy_bkg_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnBg_dec{dec_id}_nh{bin_id}"
-
-        if response_ttree_directory.get(energy_bkg_prefix, None) is not None:
-            energy_bkg_hist = response_ttree_directory[energy_bkg_prefix]
-            return dec_id, bin_id, energy_bkg_hist.to_boost()  # type: ignore
-
-        energy_bkg_prefix = (
-            f"dec_{dec_id:02d}/nh_{bin_id.zfill(2)}/EnBg_dec{dec_id}_nh{bin_id}"
-        )
-
-        if response_ttree_directory.get(energy_bkg_prefix, None) is not None:
-            energy_bkg_hist = response_ttree_directory[energy_bkg_prefix]
-
-            return dec_id, bin_id, energy_bkg_hist.to_boost()  # type: ignore
 
         raise KeyError("Unknown binning scheme in response file")
 
@@ -330,7 +304,6 @@ class HAWCResponse:
                     assert max_dec == max_decs[-1], "Response is corrupted"
 
                 sim_n_sig_events = these_meta["n_sim_signal_events"]
-                sim_n_bg_events = these_meta["n_sim_bkg_events"]
 
                 this_effarea_df = effarea_dfs.loc[dec_center, energy_bin]
 
@@ -346,7 +319,9 @@ class HAWCResponse:
                     :, "sim_signal_events_per_bin"
                 ].values
 
-                this_psf = PSFWrapper.from_pandas(psf_dfs.loc[dec_center, energy_bin, :])
+                this_psf = PSFWrapper.from_pandas(
+                    psf_dfs.loc[dec_center, energy_bin, :]
+                )
 
                 this_response_bin = ResponseBin(
                     energy_bin,
@@ -354,7 +329,6 @@ class HAWCResponse:
                     max_dec,
                     dec_center,
                     sim_n_sig_events,
-                    sim_n_bg_events,
                     sim_energy_bin_low,
                     sim_energy_bin_centers,
                     sim_energy_bin_hi,
@@ -406,11 +380,14 @@ class HAWCResponse:
                 f"Response {response_file_name} does not exist or is not readable"
             )
 
-        with multiprocessing.Pool(processes=n_workers) as pool, uproot.open(
-            response_file_name,
-            handler=uproot.MemmapSource,
-            num_fallback_workers=n_workers,
-        ) as response_file_directory:
+        with (
+            multiprocessing.Pool(processes=n_workers) as pool,
+            uproot.open(
+                response_file_name,
+                handler=uproot.MemmapSource,
+                num_fallback_workers=n_workers,
+            ) as response_file_directory,
+        ):
             # the handler for MemmapSource loads the file as it's needed
             # suggested as the best for large local files
             # otherwise use MultithreadedFileSource for remote files
@@ -435,11 +412,11 @@ class HAWCResponse:
             ]
 
             results = list(pool.starmap(resp_metadata.get_energy_hist, args))
-            results_bkg = list(pool.starmap(resp_metadata.get_energy_bkg_hist, args))
+            # results_bkg = list(pool.starmap(resp_metadata.get_energy_bkg_hist, args))
             psf_param = list(pool.starmap(resp_metadata.get_psf_params, args))
 
         energy_hists = cls.create_dict_from_results(results)
-        energy_bkgs = cls.create_dict_from_results(results_bkg)
+        # energy_bkgs = cls.create_dict_from_results(results_bkg)
         psf_metas = cls.create_dict_from_results(psf_param)
 
         # NOTE: Now we have all the info we need to build the response
@@ -451,13 +428,13 @@ class HAWCResponse:
 
             for bin_id in analysis_bins_arr:
                 current_hist = energy_hists[(dec_id, bin_id)]
-                current_hist_bkg = energy_bkgs[(dec_id, bin_id)]
+                # current_hist_bkg = energy_bkgs[(dec_id, bin_id)]
                 current_psf_params = psf_metas[(dec_id, bin_id)]
 
                 this_response_bin = ResponseBin.from_ttree(
                     bin_id,
                     current_hist,
-                    current_hist_bkg,
+                    # current_hist_bkg,
                     psf_fit_params=current_psf_params,
                     log_log_params=log_log_params,
                     log_log_shape=log_log_shape,
@@ -553,7 +530,9 @@ class HAWCResponse:
         if verbose:
             log.info(self._dec_bins)
         # log.info("Number of energy/nHit planes per dec bin_name: %s" % (self.n_energy_planes))
-        log.info(f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}")
+        log.info(
+            f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}"
+        )
         if verbose:
             log.info(list(self._response_bins.values())[0].keys())
 
@@ -589,9 +568,9 @@ class HAWCResponse:
                 psf_dfs.append(this_psf_df)
                 # assert bin_id == response_bin.name, \
                 # 'Bin name inconsistency: {} != {}'.format(bin_id, response_bin.name)
-                assert (
-                    bin_id == response_bin.name
-                ), f"Bin name inconsistency: {bin_id} != {response_bin.name}"
+                assert bin_id == response_bin.name, (
+                    f"Bin name inconsistency: {bin_id} != {response_bin.name}"
+                )
                 multi_index_keys.append((dec_center, response_bin.name))
                 all_metas.append(pd.Series(this_meta))
 
