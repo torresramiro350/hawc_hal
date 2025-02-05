@@ -1,12 +1,20 @@
 from builtins import object
-import numpy as np
+from typing import Self
+from typing import TypeAlias as T
+
 import healpy as hp
+import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+from typing_extensions import override
+
 from ..special_values import UNSEEN
+
+ndarray: T = NDArray[np.float64]
+ndarri64: T = NDArray[np.int64]
 
 
 def _not_implemented():  # pragma: no cover
-
     raise RuntimeError("You cannot use the base class. Use the derived classes.")
 
 
@@ -16,12 +24,11 @@ class HealpixWrapperBase(object):
     independently of whether the underlying map is sparse or dense
     """
 
-    def __init__(self, sparse, nside):
-
-        self._nside = int(nside)
-        self._npix = hp.nside2npix(self._nside)
-        self._pixel_area = hp.nside2pixarea(self._nside, degrees=True)
-        self._sparse = bool(sparse)
+    def __init__(self, sparse: bool, nside: int):
+        self._nside: int = int(nside)
+        self._npix: int = hp.nside2npix(self._nside)
+        self._pixel_area: float = hp.nside2pixarea(self._nside, degrees=True)
+        self._sparse: bool = bool(sparse)
 
     @property
     def is_sparse(self):
@@ -46,15 +53,13 @@ class HealpixWrapperBase(object):
         """
         return self._pixel_area
 
-    def as_dense(self):  # pragma: no cover
-
+    def as_dense(self) -> ndarray:  # pragma: no cover
         return _not_implemented()
 
-    def as_partial(self):  # pragma: no cover
-
+    def as_partial(self) -> ndarray:  # pragma: no cover
         return _not_implemented()
 
-    def to_pandas(self):
+    def to_pandas(self) -> pd.Series:
         """
         Returns a pandas Series with the dense representation of the data
 
@@ -65,28 +70,30 @@ class HealpixWrapperBase(object):
 
 
 class SparseHealpix(HealpixWrapperBase):
-
-    def __init__(self, partial_map, pixels_ids, nside, fill_value=UNSEEN):
-
-        self._partial_map = partial_map
-        self._pixels_ids = pixels_ids
-        self._fill_value = fill_value
+    def __init__(
+        self,
+        partial_map: ndarray,
+        pixels_ids: ndarri64,
+        nside: int,
+        fill_value: float = UNSEEN,
+    ):
+        self._partial_map: ndarray = partial_map
+        self._pixels_ids: ndarri64 = pixels_ids
+        self._fill_value: float = fill_value
 
         super(SparseHealpix, self).__init__(sparse=True, nside=nside)
 
     def __add__(self, other_map):
-
         # Make sure they have the same pixels
         assert np.array_equal(self._pixels_ids, other_map.pixels_ids)
 
         added = self.as_partial() + other_map.as_partial()
 
         sparse_added = SparseHealpix(added, self._pixels_ids, self.nside)
-        
+
         return sparse_added
 
-    def __sub__(self, other_map):
-
+    def __sub__(self, other_map: Self):
         # Make sure they have the same pixels
         assert np.array_equal(self._pixels_ids, other_map.pixels_ids)
 
@@ -96,6 +103,7 @@ class SparseHealpix(HealpixWrapperBase):
 
         return sparse_subtracted
 
+    @override
     def as_dense(self):
         """
         Returns the dense (i.e., full sky) representation of the map. Note that this means unwrapping the map,
@@ -112,12 +120,11 @@ class SparseHealpix(HealpixWrapperBase):
 
         return new_map
 
-    def as_partial(self):
-
+    @override
+    def as_partial(self) -> ndarray:
         return self._partial_map
 
-    def set_new_values(self, new_values):
-
+    def set_new_values(self, new_values: ndarray) -> None:
         assert new_values.shape == self._partial_map.shape
 
         self._partial_map[:] = new_values
@@ -127,20 +134,21 @@ class SparseHealpix(HealpixWrapperBase):
         return self._pixels_ids
 
 
-
 class DenseHealpix(HealpixWrapperBase):
     """
     A dense (fullsky) healpix map. In this case partial and complete are the same map.
 
     """
 
-    def __init__(self, healpix_array):
+    def __init__(self, healpix_array: ndarray):
+        self._dense_map: ndarray = healpix_array
 
-        self._dense_map = healpix_array
+        super(DenseHealpix, self).__init__(
+            nside=hp.npix2nside(healpix_array.shape[0]), sparse=False
+        )
 
-        super(DenseHealpix, self).__init__(nside=hp.npix2nside(healpix_array.shape[0]), sparse=False)
-
-    def as_dense(self):
+    @override
+    def as_dense(self) -> ndarray:
         """
         Returns the complete (i.e., full sky) representation of the map. Since this is a dense map, this is identical
         to the input map
@@ -150,13 +158,11 @@ class DenseHealpix(HealpixWrapperBase):
 
         return self._dense_map
 
-    def as_partial(self):
-
+    @override
+    def as_partial(self) -> ndarray:
         return self._dense_map
 
-    def set_new_values(self, new_values):
-
+    def set_new_values(self, new_values: ndarray):
         assert new_values.shape == self._dense_map.shape
 
         self._dense_map[:] = new_values
-

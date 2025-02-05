@@ -32,6 +32,7 @@ from hawc_hal.convolved_source import (
     ConvolvedPointSource,
     ConvolvedSourcesContainer,
 )
+from hawc_hal.flat_sky_projection import FlatSkyProjection
 from hawc_hal.healpix_handling import (
     FlatSkyToHealpixTransform,
     SparseHealpix,
@@ -75,8 +76,8 @@ class HAL(PluginPrototype):
         set_transits: float | None = None,
     ):
         # Store ROI
-        self._roi = roi
-        self._n_workers = n_workers
+        self._roi: HealpixConeROI | HealpixMapROI = roi
+        self._n_workers: int = n_workers
 
         # optionally specify n_transits
         if set_transits is not None:
@@ -88,18 +89,18 @@ class HAL(PluginPrototype):
             log.info("Using transits contained in maptree")
 
         # Set up the flat-sky projection
-        self.flat_sky_pixels_size = flat_sky_pixels_size
-        self._flat_sky_projection = self._roi.get_flat_sky_projection(
+        self.flat_sky_pixels_size: float = flat_sky_pixels_size
+        self._flat_sky_projection: FlatSkyProjection = self._roi.get_flat_sky_projection(
             self.flat_sky_pixels_size
         )
 
         # Read map tree (data)
-        self._maptree = map_tree_factory(
+        self._maptree: MapTree = map_tree_factory(
             maptree, roi=self._roi, n_transits=n_transits, n_workers=self._n_workers
         )
 
         # Read detector response_file
-        self._response = hawc_response_factory(
+        self._response: HAWCResponse = hawc_response_factory(
             response_file_name=response_file, n_workers=self._n_workers
         )
 

@@ -5,10 +5,13 @@ import os
 import astropy.units as u
 import numpy as np
 import pandas as pd
+from maptree.data_analysis_bin import DataAnalysisBin
 from past.utils import old_div
 from threeML.io.file_utils import sanitize_filename
 from threeML.io.logging import setup_logger
 from threeML.io.rich_display import display
+
+from hawc_hal.region_of_interest import HealpixConeROI, HealpixMapROI
 
 from ..serialize import Serialization
 from .from_hdf5_file import from_hdf5_file
@@ -18,7 +21,12 @@ log = setup_logger(__name__)
 log.propagate = False
 
 
-def map_tree_factory(map_tree_file, roi, n_workers: int = 1, n_transits=None):
+def map_tree_factory(
+    map_tree_file: str,
+    roi: HealpixConeROI | HealpixMapROI,
+    n_workers: int = 1,
+    n_transits: float | None = None,
+):
     # Sanitize files in input (expand variables and so on)
     map_tree_file = sanitize_filename(map_tree_file)
 
@@ -29,7 +37,12 @@ def map_tree_factory(map_tree_file, roi, n_workers: int = 1, n_transits=None):
 
 
 class MapTree:
-    def __init__(self, analysis_bins, roi, n_transits=None):
+    def __init__(
+        self,
+        analysis_bins: list[str],
+        roi: HealpixConeROI | HealpixMapROI,
+        n_transits: float | None = None,
+    ):
         self._analysis_bins = analysis_bins
         self._roi = roi
 
@@ -131,7 +144,7 @@ class MapTree:
         size = 0
 
         for i, bin_id in enumerate(self._analysis_bins):
-            analysis_bin = self._analysis_bins[bin_id]
+            analysis_bin: DataAnalysisBin = self._analysis_bins[bin_id]
 
             sparse_obs = analysis_bin.observation_map.as_partial()
             sparse_bkg = analysis_bin.background_map.as_partial()
