@@ -18,6 +18,7 @@ from astropy.convolution import convolve_fft as convolve
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from past.utils import old_div
+from response.response import HAWCResponse
 from scipy.stats import poisson
 from threeML.io.logging import setup_logger
 from threeML.parallel import parallel_client
@@ -41,6 +42,7 @@ from hawc_hal.maptree import map_tree_factory
 from hawc_hal.maptree.data_analysis_bin import DataAnalysisBin
 from hawc_hal.maptree.map_tree import MapTree
 from hawc_hal.psf_fast import PSFConvolutor
+from hawc_hal.region_of_interest import HealpixConeROI, HealpixMapROI
 from hawc_hal.response import hawc_response_factory
 from hawc_hal.util import ra_to_longitude
 
@@ -64,13 +66,13 @@ class HAL(PluginPrototype):
 
     def __init__(
         self,
-        name,
-        maptree,
-        response_file,
-        roi,
+        name: str,
+        maptree: MapTree,
+        response_file: HAWCResponse,
+        roi: HealpixConeROI | HealpixMapROI,
         flat_sky_pixels_size: float = 0.17,
         n_workers: int = 1,
-        set_transits=None,
+        set_transits: float | None = None,
     ):
         # Store ROI
         self._roi = roi
