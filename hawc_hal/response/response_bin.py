@@ -1,4 +1,5 @@
-""" Generate ResponseBin for HAWC Likelihood plugin"""
+"""Generate ResponseBin for HAWC Likelihood plugin"""
+
 from dataclasses import dataclass, field
 
 import boost_histogram as bh

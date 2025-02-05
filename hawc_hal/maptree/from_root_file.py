@@ -61,7 +61,9 @@ class MaptreeMetaData:
             if self._legacy_convention
             else self.analysis_bin_names[0]
         )
-        return self.maptree_ttree_directory[f"nHit{bin_id}/data/count"].member("fEntries")
+        return self.maptree_ttree_directory[f"nHit{bin_id}/data/count"].member(
+            "fEntries"
+        )
 
     @property
     def _bkg_npixels(self) -> int:
@@ -71,7 +73,9 @@ class MaptreeMetaData:
             if self._legacy_convention
             else self.analysis_bin_names[0]
         )
-        return self.maptree_ttree_directory[f"nHit{bin_id}/bkg/count"].member("fEntries")
+        return self.maptree_ttree_directory[f"nHit{bin_id}/bkg/count"].member(
+            "fEntries"
+        )
 
     @property
     def nside_cnt(self) -> int:
@@ -117,9 +121,9 @@ def get_array_from_file(
 
     if roi is not None:
         # NOTE: load only the pixels within the ROI
-        return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array().to_numpy()[
-            hpx_map > 0.0
-        ]
+        return bin_id, map_infile[
+            f"nHit{current_bin_id}/data/count"
+        ].array().to_numpy()[hpx_map > 0.0]
 
     return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array().to_numpy()
 
@@ -206,11 +210,14 @@ def from_root_file(
     # cannot perform operations on histrograms
 
     # Read the maptree
-    with multiprocessing.Pool(processes=n_workers) as pool, uproot.open(
-        map_tree_file.as_posix(),
-        handler=uproot.MemmapSource,
-        num_fallback_workers=n_workers,
-    ) as map_infile:
+    with (
+        multiprocessing.Pool(processes=n_workers) as pool,
+        uproot.open(
+            map_tree_file.as_posix(),
+            handler=uproot.MemmapSource,
+            num_fallback_workers=n_workers,
+        ) as map_infile,
+    ):
         # the handler for MemmapSource loads the file as it's needed
         # suggested as the best for large local files
         # otherwise use MultithreadedFileSource for remote files
@@ -227,9 +234,9 @@ def from_root_file(
         nside_bkg: int = maptree_metadata.nside_bkg
         # binning_scheme_name: str = maptree_metadata.binning_scheme
 
-        assert (
-            nside_cnt == nside_bkg
-        ), "Nside value needs to be the same for counts and bkg. maps"
+        assert nside_cnt == nside_bkg, (
+            "Nside value needs to be the same for counts and bkg. maps"
+        )
 
         healpix_map_active = np.zeros(hp.nside2npix(nside_cnt))
 

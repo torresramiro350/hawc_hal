@@ -13,8 +13,10 @@ log.propagate = False
 import matplotlib.pyplot as plt
 from astropy.coordinates.angle_utilities import angular_separation
 from astropy.io import fits as pyfits
-from threeML.parallel.parallel_client import (ParallelClient,
-                                              is_parallel_computation_active)
+from threeML.parallel.parallel_client import (
+    ParallelClient,
+    is_parallel_computation_active,
+)
 from tqdm.auto import tqdm
 
 from hawc_hal.HAL import HAL

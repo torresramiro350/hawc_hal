@@ -14,7 +14,6 @@ class FastBilinearInterpolation(object):
     """
 
     def __init__(self, input_shape, new_points):
-
         self._gridx = np.arange(input_shape[0])
         self._gridy = np.arange(input_shape[1])
 
@@ -28,8 +27,8 @@ class FastBilinearInterpolation(object):
     @staticmethod
     def _find_bounding_box(xaxis, yaxis, xs, ys):
         # Find lower left corner of bounding box
-        xidx = np.searchsorted(xaxis, xs, 'left') - 1
-        yidx = np.searchsorted(yaxis, ys, 'left') - 1
+        xidx = np.searchsorted(xaxis, xs, "left") - 1
+        yidx = np.searchsorted(yaxis, ys, "left") - 1
 
         lower_left_x = xaxis[xidx]
         lower_left_y = yaxis[yidx]
@@ -43,13 +42,18 @@ class FastBilinearInterpolation(object):
         lower_right_x = xaxis[xidx + 1]
         lower_right_y = yaxis[yidx]
 
-        return (lower_left_x, lower_left_y,
-                upper_left_x, upper_left_y,
-                upper_right_x, upper_right_y,
-                lower_right_x, lower_right_y)
+        return (
+            lower_left_x,
+            lower_left_y,
+            upper_left_x,
+            upper_left_y,
+            upper_right_x,
+            upper_right_y,
+            lower_right_x,
+            lower_right_y,
+        )
 
     def compute_coefficients(self, p):
-
         xx = p[0]
         yy = p[1]
 
@@ -60,7 +64,9 @@ class FastBilinearInterpolation(object):
         #
         # y2 q12   q22
 
-        x1, y2, xx1, y1, x2, yy1, xx2, yy2 = self._find_bounding_box(self._gridx, self._gridy, xx, yy)
+        x1, y2, xx1, y1, x2, yy1, xx2, yy2 = self._find_bounding_box(
+            self._gridx, self._gridy, xx, yy
+        )
 
         bs = np.zeros((xx.shape[0], 4), np.float64)
 
@@ -78,15 +84,13 @@ class FastBilinearInterpolation(object):
         # Stack them so that they are in the right order, i.e.:
         # ul1, ur1, ll1, lr1, ul2, ur2, ll2, lr2 ... uln, urn, lln, lrn
 
-        flat_points = np.vstack([flat_upper_left,
-                                 flat_upper_right,
-                                 flat_lower_left,
-                                 flat_lower_right]).T.flatten()
+        flat_points = np.vstack(
+            [flat_upper_left, flat_upper_right, flat_lower_left, flat_lower_right]
+        ).T.flatten()
 
         return bs, flat_points.astype(np.int64)
 
     def __call__(self, data):
-
         res = _apply_bilinar_interpolation(self._bs, self._flat_points, data)
 
         return res
@@ -94,7 +98,6 @@ class FastBilinearInterpolation(object):
 
 @jit("float64[:](float64[:, :], int64[:], float64[:, :])", nopython=True)
 def _apply_bilinar_interpolation(bs, points, data):  # pragma: no cover
-
     vs = data.ravel()[points]
 
     return np.sum(bs * vs.reshape(bs.shape), axis=1).flatten()

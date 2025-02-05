@@ -91,7 +91,9 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        energy_hist_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
+        energy_hist_prefix = (
+            f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
+        )
         if response_ttree_directory.get(energy_hist_prefix, None) is not None:
             energy_hist = response_ttree_directory[energy_hist_prefix]
 
@@ -346,7 +348,9 @@ class HAWCResponse:
                     :, "sim_signal_events_per_bin"
                 ].values
 
-                this_psf = PSFWrapper.from_pandas(psf_dfs.loc[dec_center, energy_bin, :])
+                this_psf = PSFWrapper.from_pandas(
+                    psf_dfs.loc[dec_center, energy_bin, :]
+                )
 
                 this_response_bin = ResponseBin(
                     energy_bin,
@@ -406,11 +410,14 @@ class HAWCResponse:
                 f"Response {response_file_name} does not exist or is not readable"
             )
 
-        with multiprocessing.Pool(processes=n_workers) as pool, uproot.open(
-            response_file_name,
-            handler=uproot.MemmapSource,
-            num_fallback_workers=n_workers,
-        ) as response_file_directory:
+        with (
+            multiprocessing.Pool(processes=n_workers) as pool,
+            uproot.open(
+                response_file_name,
+                handler=uproot.MemmapSource,
+                num_fallback_workers=n_workers,
+            ) as response_file_directory,
+        ):
             # the handler for MemmapSource loads the file as it's needed
             # suggested as the best for large local files
             # otherwise use MultithreadedFileSource for remote files
@@ -553,7 +560,9 @@ class HAWCResponse:
         if verbose:
             log.info(self._dec_bins)
         # log.info("Number of energy/nHit planes per dec bin_name: %s" % (self.n_energy_planes))
-        log.info(f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}")
+        log.info(
+            f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}"
+        )
         if verbose:
             log.info(list(self._response_bins.values())[0].keys())
 
@@ -589,9 +598,9 @@ class HAWCResponse:
                 psf_dfs.append(this_psf_df)
                 # assert bin_id == response_bin.name, \
                 # 'Bin name inconsistency: {} != {}'.format(bin_id, response_bin.name)
-                assert (
-                    bin_id == response_bin.name
-                ), f"Bin name inconsistency: {bin_id} != {response_bin.name}"
+                assert bin_id == response_bin.name, (
+                    f"Bin name inconsistency: {bin_id} != {response_bin.name}"
+                )
                 multi_index_keys.append((dec_center, response_bin.name))
                 all_metas.append(pd.Series(this_meta))
 

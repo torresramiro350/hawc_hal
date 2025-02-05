@@ -182,9 +182,9 @@ class PSFWrapper(object):
 
         if len(xs) == 0:
             # Should never happen
-            assert (
-                len(ys) == 0
-            ), "Corrupted response file? A PSF has 0 xs values but more than 0 ys values"
+            assert len(ys) == 0, (
+                "Corrupted response file? A PSF has 0 xs values but more than 0 ys values"
+            )
 
             # An invalid PSF
             return InvalidPSF()
@@ -239,7 +239,9 @@ class PSFWrapper(object):
             return InvalidPSF()
 
         radial_dists = np.logspace(-3, np.log10(_INTEGRAL_OUTER_RADIUS), 500)
-        expected_cnts = np.array([cls.psf_func(x, fun_parameters) for x in radial_dists])
+        expected_cnts = np.array(
+            [cls.psf_func(x, fun_parameters) for x in radial_dists]
+        )
 
         assert np.all(np.isfinite(radial_dists))
         assert np.all(np.isfinite(expected_cnts))

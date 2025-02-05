@@ -115,10 +115,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="bla", epilog=help)
 
     parser.add_argument(
-        "--ra_roi", help="R.A. of center of ROI", type=float, required=False, default=None
+        "--ra_roi",
+        help="R.A. of center of ROI",
+        type=float,
+        required=False,
+        default=None,
     )
     parser.add_argument(
-        "--dec_roi", help="Dec of center of ROI", type=float, required=False, default=None
+        "--dec_roi",
+        help="Dec of center of ROI",
+        type=float,
+        required=False,
+        default=None,
     )
     parser.add_argument(
         "--ra", help="R.A. of source", type=float, required=True, default=None

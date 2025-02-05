@@ -195,8 +195,8 @@ class MapTree:
         for bin_id in self._analysis_bins:
             analysis_bin = self._analysis_bins[bin_id]
 
-            assert bin_id == analysis_bin.name, "Bin name inconsistency: {} != {}".format(
-                bin_id, analysis_bin.name
+            assert bin_id == analysis_bin.name, (
+                "Bin name inconsistency: {} != {}".format(bin_id, analysis_bin.name)
             )
 
             multi_index_keys.append(analysis_bin.name)

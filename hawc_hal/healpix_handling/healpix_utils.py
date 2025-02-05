@@ -3,7 +3,6 @@ import numpy as np
 
 
 def radec_to_vec(ra, dec):
-
     assert 0 <= ra <= 360
     assert -90 <= dec <= 90
 
