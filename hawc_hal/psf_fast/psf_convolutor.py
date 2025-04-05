@@ -76,7 +76,7 @@ class PSFConvolutor(object):
     def extended_source_image(self, ideal_image):
         # Convolve
 
-        assert np.alltrue(ideal_image.shape == self._expected_shape), (
+        assert np.all(ideal_image.shape == self._expected_shape), (
             "Shape of image to be convolved is not correct."
         )
 

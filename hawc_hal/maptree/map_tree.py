@@ -5,7 +5,6 @@ import os
 import astropy.units as u
 import numpy as np
 import pandas as pd
-from maptree.data_analysis_bin import DataAnalysisBin
 from past.utils import old_div
 from threeML.io.file_utils import sanitize_filename
 from threeML.io.logging import setup_logger
@@ -14,6 +13,7 @@ from threeML.io.rich_display import display
 from hawc_hal.region_of_interest import HealpixConeROI, HealpixMapROI
 
 from ..serialize import Serialization
+from .data_analysis_bin import DataAnalysisBin
 from .from_hdf5_file import from_hdf5_file
 from .from_root_file import from_root_file
 
@@ -195,8 +195,8 @@ class MapTree:
         for bin_id in self._analysis_bins:
             analysis_bin = self._analysis_bins[bin_id]
 
-            assert bin_id == analysis_bin.name, (
-                "Bin name inconsistency: {} != {}".format(bin_id, analysis_bin.name)
+            assert bin_id == analysis_bin.name, "Bin name inconsistency: {} != {}".format(
+                bin_id, analysis_bin.name
             )
 
             multi_index_keys.append(analysis_bin.name)

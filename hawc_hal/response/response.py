@@ -25,7 +25,7 @@ log.propagate = False
 _instances = {}
 
 ndarray = NDArray[np.float64]
-nstrarray = NDArray[np.string_]
+nstrarray = NDArray[np.str_]
 
 
 def hawc_response_factory(response_file_name: str, n_workers: int = 1):
@@ -91,9 +91,7 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        energy_hist_prefix = (
-            f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
-        )
+        energy_hist_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
         if response_ttree_directory.get(energy_hist_prefix, None) is not None:
             energy_hist = response_ttree_directory[energy_hist_prefix]
 
@@ -270,7 +268,7 @@ class ResponseMetaData:
 
 
 class HAWCResponse:
-    def __init__(self, response_file_name, dec_bins, response_bins):
+    def __init__(self, response_file_name: Path, dec_bins, response_bins):
         self._response_file_name = response_file_name
         self._dec_bins = dec_bins
         self._response_bins = response_bins
@@ -348,9 +346,7 @@ class HAWCResponse:
                     :, "sim_signal_events_per_bin"
                 ].values
 
-                this_psf = PSFWrapper.from_pandas(
-                    psf_dfs.loc[dec_center, energy_bin, :]
-                )
+                this_psf = PSFWrapper.from_pandas(psf_dfs.loc[dec_center, energy_bin, :])
 
                 this_response_bin = ResponseBin(
                     energy_bin,
@@ -560,9 +556,7 @@ class HAWCResponse:
         if verbose:
             log.info(self._dec_bins)
         # log.info("Number of energy/nHit planes per dec bin_name: %s" % (self.n_energy_planes))
-        log.info(
-            f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}"
-        )
+        log.info(f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}")
         if verbose:
             log.info(list(self._response_bins.values())[0].keys())
 

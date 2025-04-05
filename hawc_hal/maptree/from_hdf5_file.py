@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import collections
-from curses import meta
 
 from threeML.io.logging import setup_logger
 
