@@ -25,7 +25,7 @@ log.propagate = False
 _instances = {}
 
 ndarray = NDArray[np.float64]
-nstrarray = NDArray[np.string_]
+nstrarray = NDArray[np.bytes_]
 
 
 def hawc_response_factory(response_file_name: str, n_workers: int = 1):
