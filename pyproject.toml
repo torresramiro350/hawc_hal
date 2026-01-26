@@ -84,18 +84,10 @@ exclude = [
 ]
 line-length = 88
 indent-width = 4
-<<<<<<< HEAD
-
-
-[tool.ruff.format]
-docstring-code-format = false
-
-=======
 docstring-code-format = false
 
 
 [tool.ruff.format]
->>>>>>> de0411105324b59ab4ba143152a80c5e367005a4
 # Like Black, use double quotes for strings.
 quote-style = "double"
 
