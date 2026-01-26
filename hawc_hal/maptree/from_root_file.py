@@ -57,7 +57,7 @@ class MaptreeMetaData:
     def _counts_npixels(self) -> int:
         """Number of pixels within the signal map"""
         bin_id = (
-            self.analysis_bin_names[0].zfill(2)
+            str(self.analysis_bin_names[0]).zfill(2)
             if self._legacy_convention
             else self.analysis_bin_names[0]
         )
@@ -67,7 +67,8 @@ class MaptreeMetaData:
     def _bkg_npixels(self) -> int:
         """Number of pixels within the background map"""
         bin_id = (
-            self.analysis_bin_names[0].zfill(2)
+            # self.analysis_bin_names[0].zfill(2)
+            str(self.analysis_bin_names[0]).zfill(2)
             if self._legacy_convention
             else self.analysis_bin_names[0]
         )
@@ -113,7 +114,7 @@ def get_array_from_file(
     :rtype: tuple[str, NDArray[np.float64]]
     """
 
-    current_bin_id = bin_id.zfill(2) if legacy_convention else bin_id
+    current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
 
     if roi is not None:
         # NOTE: load only the pixels within the ROI
@@ -148,7 +149,7 @@ def get_bkg_array_from_file(
     :type roi: Optional[HealpixConeROI | HealpixMapROI], optional
     :return: Returns the active analysis bin with its corresponding background array
     """
-    current_bin_id = bin_id.zfill(2) if legacy_convention else bin_id
+    current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
     if roi is not None:
         # NOTE: load only the pixels within the ROI
         return bin_id, map_infile[f"nHit{current_bin_id}/bkg/count"].array().to_numpy()[
