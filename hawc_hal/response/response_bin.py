@@ -30,16 +30,14 @@ class EnergyBin:
 
     bin_name: str
     signal_events: bh.Histogram
-    # bkg_events: bh.Histogram
     log_log_params: np.ndarray
-    log_log_shape: str
 
     # Variables to be initialized with the _get_edges method
     _lower_edges: ndarray = field(init=False)
     _centers: ndarray = field(init=False)
     _upper_edges: ndarray = field(init=False)
 
-    def _log_log_spectrum(self, log_energy: float, log_log_shape: str) -> float:
+    def _log_log_spectrum(self, log_energy: float) -> float:
         """Evaluate the differential flux from log10(simulated energy) values
 
         :param log_energy: simulated energy in log10 scale units (TeV)
@@ -50,11 +48,12 @@ class EnergyBin:
         :return: Differential flux in units (TeV^-1 cm^-2 s^-1) in log10 scale
         """
         parameters = self.log_log_params
-
-        if log_log_shape == "SimplePowerLaw":
+        if len(parameters) == 2:
+            # if log_log_shape == "SimplePowerLaw":
             return np.log10(parameters[0]) - parameters[1] * log_energy
 
-        if log_log_shape == "CutOffPowerLaw":
+        # if log_log_shape == "CutOffPowerLaw":
+        if len(parameters):
             return (
                 np.log10(parameters[0])
                 - parameters[1] * log_energy
@@ -75,10 +74,7 @@ class EnergyBin:
         """Calculate the differential fluxes with log energy values"""
         self._get_edges()
         differential_fluxes = np.array(
-            [
-                self._log_log_spectrum(log_energy, self.log_log_shape)
-                for log_energy in self._centers
-            ]
+            [self._log_log_spectrum(log_energy) for log_energy in self._centers]
         )
 
         return LOG_BASE**differential_fluxes
@@ -176,7 +172,6 @@ class ResponseBin:
         # energy_hist_bkg: bh.Histogram,
         psf_fit_params: ndarray,
         log_log_params: ndarray,
-        log_log_shape: str,
         min_dec: ndarray,
         dec_center: ndarray,
         max_dec: ndarray,
@@ -189,7 +184,6 @@ class ResponseBin:
         :param energy_hist_bkg: Background energy histogram from response file
         :param psf_fit_params: Best-fit PSF parameters for the active analysis_bin
         :param log_log_params: Best-fit params of the LogLogSpectrum TF1
-        :param log_log_shape: Name of the spectral shape used to fit the PSF TF1
         :param min_dec: Lower declination edges
         :param dec_center: Declination bin centers
         :param max_dec: Upper declination edges
@@ -201,12 +195,7 @@ class ResponseBin:
         # and for the complex processing of the differential flux,
         # energy lower_edges, centers, upper_edges
         # analysis_bin_id, energy_hist, energy_hist_bkg, log_log_params, log_log_shape
-        energy_bin = EnergyBin(
-            analysis_bin_id,
-            energy_hist,
-            log_log_params,
-            log_log_shape,
-        )
+        energy_bin = EnergyBin(analysis_bin_id, energy_hist, log_log_params)
 
         # Now let's see what has been simulated, i.e., the differential flux
         # at the center of each bin_name of the en_sig histogram

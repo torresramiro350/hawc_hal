@@ -93,9 +93,7 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        energy_hist_prefix = (
-            f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
-        )
+        energy_hist_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
         if response_ttree_directory.get(energy_hist_prefix, None) is not None:
             energy_hist = response_ttree_directory[energy_hist_prefix]
 
@@ -201,16 +199,16 @@ class ResponseMetaData:
         if self.response_ttree_directory.get("AnalysisBins/name", None) is not None:
             return (
                 self.response_ttree_directory["AnalysisBins/name"]
-                .array()  # type: ignore
+                .array()
                 .to_numpy()
                 .astype(dtype=str)
             )
         if self.response_ttree_directory.get("AnalysisBins/id", None) is not None:
             return (
                 self.response_ttree_directory["AnalysisBins/id"]
-                .array()  # type: ignore
+                .array()
                 .to_numpy()
-                .astype(dtype=str)
+                .astype(dtype=int)
             )
 
         raise KeyError("Unknown binning scheme in response file")
@@ -222,23 +220,33 @@ class ResponseMetaData:
         :raises KeyError: LogLogSpectrum not found in response file
         :return: array of best-fit params from PSF fit
         """
-        if self.response_ttree_directory.get("LogLogSpectrum", None) is not None:
+        if self.response_ttree_directory.get("LogLogSpectrum", None) is None:
+            raise KeyError("LogLogSpectrum not found in response file")
+        if self.response_ttree_directory["LogLogSpectrum"].member("fParams") is not None:
+            # handles ROOT 5
             return np.array(
-                self.response_ttree_directory["LogLogSpectrum"].member("fParams")  # type: ignore
+                self.response_ttree_directory["LogLogSpectrum"].member("fParams")
             )
-        raise KeyError("LogLogSpectrum not found in response file")
+        if self.response_ttree_directory["LogLogSpectrum"].member("fFormula") is not None:
+            # handles ROOT 6
+            return np.array(
+                self.response_ttree_directory["LogLogSpectrum"]
+                .member("fFormula")
+                .member("fClingParameters")
+            )
+        raise KeyError("LogLog parameters are not saved")
 
-    @property
-    def spectrum_shape(self) -> str:
-        """Retrieve the spectral shape to fit PSF
+    # @property
+    # def spectrum_shape(self) -> str:
+    #     """Retrieve the spectral shape to fit PSF
 
-        :raises KeyError: LogLogSpectrum not found in response file
-        :return: string of spectral shape used for fitting response function
-        """
-        if self.response_ttree_directory.get("LogLogSpectrum", None) is not None:
-            return self.response_ttree_directory["LogLogSpectrum"].member("fTitle")  # type: ignore
+    #     :raises KeyError: LogLogSpectrum not found in response file
+    #     :return: string of spectral shape used for fitting response function
+    #     """
+    #     if self.response_ttree_directory.get("LogLogSpectrum", None) is not None:
+    #         return self.response_ttree_directory["LogLogSpectrum"].member("fTitle")  # type: ignore
 
-        raise KeyError("LogLogSpectrum not found in response file")
+    #     raise KeyError("LogLogSpectrum not found in response file")
 
 
 class HAWCResponse:
@@ -319,9 +327,7 @@ class HAWCResponse:
                     :, "sim_signal_events_per_bin"
                 ].values
 
-                this_psf = PSFWrapper.from_pandas(
-                    psf_dfs.loc[dec_center, energy_bin, :]
-                )
+                this_psf = PSFWrapper.from_pandas(psf_dfs.loc[dec_center, energy_bin, :])
 
                 this_response_bin = ResponseBin(
                     energy_bin,
@@ -396,7 +402,6 @@ class HAWCResponse:
 
             # NOTE:Get the Response function basic information
             log_log_params = resp_metadata.log_log_params
-            log_log_shape = resp_metadata.spectrum_shape
             analysis_bins_arr = resp_metadata.analysis_bins
             dec_bins_lower_edge = resp_metadata.declination_bins_lower
             dec_bins_upper_edge = resp_metadata.declination_bins_upper
@@ -434,10 +439,8 @@ class HAWCResponse:
                 this_response_bin = ResponseBin.from_ttree(
                     bin_id,
                     current_hist,
-                    # current_hist_bkg,
                     psf_fit_params=current_psf_params,
                     log_log_params=log_log_params,
-                    log_log_shape=log_log_shape,
                     min_dec=min_dec,
                     dec_center=dec_center,
                     max_dec=max_dec,
@@ -530,9 +533,7 @@ class HAWCResponse:
         if verbose:
             log.info(self._dec_bins)
         # log.info("Number of energy/nHit planes per dec bin_name: %s" % (self.n_energy_planes))
-        log.info(
-            f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}"
-        )
+        log.info(f"Number of energy/nHit planes per dec bin_name: {self.n_energy_planes}")
         if verbose:
             log.info(list(self._response_bins.values())[0].keys())
 
