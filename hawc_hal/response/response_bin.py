@@ -13,7 +13,7 @@ from ..psf_fast import InvalidPSF, InvalidPSFError, PSFWrapper
 # from typing import Self # available on python 3.11+
 # NOTE: definition of a few constants to be used thorought the module
 LOG_BASE: int = 10
-ndarray = NDArray[np.float64]
+ndarrf64 = NDArray[np.float64]
 dataframe = pd.DataFrame
 
 
@@ -33,11 +33,11 @@ class EnergyBin:
     log_log_params: np.ndarray
 
     # Variables to be initialized with the _get_edges method
-    _lower_edges: ndarray = field(init=False)
-    _centers: ndarray = field(init=False)
-    _upper_edges: ndarray = field(init=False)
+    _lower_edges: ndarrf64 = field(init=False)
+    _centers: ndarrf64 = field(init=False)
+    _upper_edges: ndarrf64 = field(init=False)
 
-    def _log_log_spectrum(self, log_energy: float) -> float:
+    def _log_log_spectrum(self, log_energy: ndarrf64) -> ndarrf64:
         """Evaluate the differential flux from log10(simulated energy) values
 
         :param log_energy: simulated energy in log10 scale units (TeV)
@@ -48,12 +48,12 @@ class EnergyBin:
         :return: Differential flux in units (TeV^-1 cm^-2 s^-1) in log10 scale
         """
         parameters = self.log_log_params
+        # Spectral shape is of form "SimplePowerLaw":
         if len(parameters) == 2:
-            # if log_log_shape == "SimplePowerLaw":
             return np.log10(parameters[0]) - parameters[1] * log_energy
 
-        # if log_log_shape == "CutOffPowerLaw":
-        if len(parameters):
+        # Spectral shape is of form "CutOffPowerLaw":
+        if len(parameters) == 3:
             return (
                 np.log10(parameters[0])
                 - parameters[1] * log_energy
@@ -61,7 +61,7 @@ class EnergyBin:
                 * np.power(10.0, log_energy - np.log10(parameters[2]))
             )
 
-        raise ValueError("Unknown spectral shape.")
+        raise ValueError(f"Unknown spectral shape with {len(parameters)} parameters")
 
     def _get_edges(self) -> None:
         """Read the lower, center and upper edges of the energy bins"""
@@ -73,9 +73,10 @@ class EnergyBin:
     def get_differential_fluxes(self) -> np.ndarray:
         """Calculate the differential fluxes with log energy values"""
         self._get_edges()
-        differential_fluxes = np.array(
-            [self._log_log_spectrum(log_energy) for log_energy in self._centers]
-        )
+        differential_fluxes = self._log_log_spectrum(self._centers)
+        # differential_fluxes = np.array(
+        #     [self._log_log_spectrum(log_energy) for log_energy in self._centers]
+        # )
 
         return LOG_BASE**differential_fluxes
 
@@ -170,11 +171,11 @@ class ResponseBin:
         analysis_bin_id: str,
         energy_hist: bh.Histogram,
         # energy_hist_bkg: bh.Histogram,
-        psf_fit_params: ndarray,
-        log_log_params: ndarray,
-        min_dec: ndarray,
-        dec_center: ndarray,
-        max_dec: ndarray,
+        psf_fit_params: ndarrf64,
+        log_log_params: ndarrf64,
+        min_dec: ndarrf64,
+        dec_center: ndarrf64,
+        max_dec: ndarrf64,
     ) -> Self:
         """Read in the response file with ROOT format and organize all the necessary
         information
@@ -230,7 +231,7 @@ class ResponseBin:
             psf_fun,
         )
 
-    def to_pandas(self) -> tuple[dataframe, dict[str, ndarray], dataframe]:
+    def to_pandas(self) -> tuple[dataframe, dict[str, ndarrf64], dataframe]:
         """Organizes information a response ROOT file into a dataframe for later storage
         in a file with HDF5 format
 
@@ -240,7 +241,7 @@ class ResponseBin:
         """
 
         # In the metadata let's save all single values (floats)
-        meta: dict[str, ndarray] = {
+        meta: dict[str, ndarrf64] = {
             "min_dec": self._min_dec,
             "max_dec": self._max_dec,
             "declination_center": self._dec_center,
@@ -264,7 +265,7 @@ class ResponseBin:
         return df, meta, self.psf.to_pandas()
 
     def combine_with_weights(
-        self, other_response_bin: Self, dec_center: float, w1: ndarray, w2: ndarray
+        self, other_response_bin: Self, dec_center: float, w1: ndarrf64, w2: ndarrf64
     ):
         """
         Produce another response bin which is the weighted sum of this one and

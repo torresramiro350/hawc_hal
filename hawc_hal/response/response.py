@@ -82,7 +82,7 @@ class ResponseMetaData:
 
     @staticmethod
     def get_energy_hist(
-        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str | int
+        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
     ) -> tuple[int, str, bh.Histogram]:
         """Retrieve the signal energy histogram from response file
 
@@ -93,8 +93,8 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        if str(bin_id).isdigit():
-            bin_prefix = str(bin_id).zfill(2)
+        if bin_id.isdigit():
+            bin_prefix = bin_id.zfill(2)
         else:
             bin_prefix = bin_id
 
@@ -105,22 +105,13 @@ class ResponseMetaData:
         if response_ttree_directory.get(energy_hist_prefix, None) is None:
             raise KeyError("Unknown binning scheme in response file")
 
-            # energy_hist = response_ttree_directory[energy_hist_prefix]
-            #
-            # return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
-
-        # energy_hist_prefix = (
-        #     f"dec_{dec_id:02d}/nh_{bin_id.zfill(2)}/EnSig_dec{dec_id}_nh{bin_id}"
-        # )
-
-        # if response_ttree_directory.get(energy_hist_prefix, None) is not None:
         energy_hist = response_ttree_directory[energy_hist_prefix]
 
         return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
 
     @staticmethod
     def get_psf_params(
-        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str | int
+        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
     ) -> tuple[int, str | int, ndarray]:
         """Read the list of best-fit PSF parameters from response file
 
@@ -130,8 +121,8 @@ class ResponseMetaData:
         :raises KeyError: raised if the binning scheme is not recognized
         :return: tuple of declination bin, analysis bin id and best-fit PSF parameters
         """
-        if str(bin_id).isdigit():
-            bin_prefix = str(bin_id).zfill(2)
+        if bin_id.isdigit():
+            bin_prefix = bin_id.zfill(2)
         else:
             bin_prefix = bin_id
 
@@ -225,7 +216,7 @@ class ResponseMetaData:
                 self.response_ttree_directory["AnalysisBins/id"]
                 .array()
                 .to_numpy()
-                .astype(dtype=int)
+                .astype(dtype=str)
             )
 
         raise KeyError("Unknown binning scheme in response file")
@@ -258,18 +249,6 @@ class ResponseMetaData:
             dtype=np.float64,
         )
 
-    # @property
-    # def spectrum_shape(self) -> str:
-    #     """Retrieve the spectral shape to fit PSF
-
-    #     :raises KeyError: LogLogSpectrum not found in response file
-    #     :return: string of spectral shape used for fitting response function
-    #     """
-    #     if self.response_ttree_directory.get("LogLogSpectrum", None) is not None:
-    #         return self.response_ttree_directory["LogLogSpectrum"].member("fTitle")  # type: ignore
-
-    #     raise KeyError("LogLogSpectrum not found in response file")
-
 
 class HAWCResponse:
     def __init__(self, response_file_name, dec_bins, response_bins):
@@ -278,7 +257,6 @@ class HAWCResponse:
         self._response_bins = response_bins
 
         if len(dec_bins) < 2:
-            #   log.warning("Only {0} dec bins given in {1}, will not try to interpolate.".format(len(dec_bins), response_file_name))
             log.warning(
                 f"Only {len(dec_bins)} dec bins given in {response_file_name}, will not try to interpolate."
             )
