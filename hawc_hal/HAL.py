@@ -252,19 +252,26 @@ class HAL(PluginPrototype):
         """
         return sum(self._saturated_model_like_per_maptree.values())
 
-    def set_active_measurements(self, bin_id_min=None, bin_id_max=None, bin_list=None):
+    def set_active_measurements(
+        self,
+        bin_id_min: int | None = None,
+        bin_id_max: int | None = None,
+        bin_list: list[str] | None = None,
+    ):
         """
         Set the active analysis bins to use during the analysis. It can be used in two ways:
 
         - Specifying a range: if the response and the maptree allows it, you can specify a minimum id and a maximum id
         number. This only works if the analysis bins are numerical, like in the normal fHit analysis. For example:
 
-            > set_active_measurement(bin_id_min=1, bin_id_max=9)
+        .. code-block::python
+            hal.set_active_measurement(bin_id_min=1, bin_id_max=9)
 
         - Specifying a list of bins as strings. This is more powerful, as allows to select any bins, even
         non-contiguous bins. For example:
 
-            > set_active_measurement(bin_list=[list])
+        .. code-block::python
+            hal.set_active_measurement(bin_list=[list])
 
         :param bin_id_min: minimum bin (only works for fHit analysis. For the others, use bin_list)
         :param bin_id_max: maximum bin (only works for fHit analysis. For the others, use bin_list)
