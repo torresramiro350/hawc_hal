@@ -4,6 +4,7 @@ import collections
 import contextlib
 import copy
 from builtins import range, str
+from pathlib import Path
 from typing import Union
 
 import astromodels
@@ -39,6 +40,8 @@ from hawc_hal.maptree import map_tree_factory
 from hawc_hal.maptree.data_analysis_bin import DataAnalysisBin
 from hawc_hal.maptree.map_tree import MapTree
 from hawc_hal.psf_fast import PSFConvolutor
+from hawc_hal.region_of_interest.healpix_cone_roi import HealpixConeROI
+from hawc_hal.region_of_interest.healpix_map_roi import HealpixMapROI
 from hawc_hal.response import hawc_response_factory
 from hawc_hal.util import ra_to_longitude
 
@@ -61,13 +64,13 @@ class HAL(PluginPrototype):
 
     def __init__(
         self,
-        name,
-        maptree,
-        response_file,
-        roi,
+        name: str,
+        maptree: Path,
+        response_file: Path,
+        roi: HealpixConeROI | HealpixMapROI,
         flat_sky_pixels_size: float = 0.17,
         n_workers: int = 1,
-        set_transits=None,
+        set_transits: int | None = None,
     ):
         # Store ROI
         self._roi = roi
@@ -90,12 +93,12 @@ class HAL(PluginPrototype):
 
         # Read map tree (data)
         self._maptree = map_tree_factory(
-            maptree, roi=self._roi, n_transits=n_transits, n_workers=self._n_workers
+            Path(maptree), roi=self._roi, n_transits=n_transits, n_workers=self._n_workers
         )
 
         # Read detector response_file
         self._response = hawc_response_factory(
-            response_file_name=response_file, n_workers=self._n_workers
+            response_file_name=Path(response_file), n_workers=self._n_workers
         )
 
         # Use a renormalization of the background as nuisance parameter
@@ -130,7 +133,7 @@ class HAL(PluginPrototype):
         self._all_planes = list(self._maptree.analysis_bins_labels)
 
         # The active planes list always contains the list of *indexes* of the active planes
-        self._active_planes = None
+        self._active_planes: list[str] | None = None
 
         # Set up the transformations from the flat-sky projection to Healpix, as well as the list of active pixels
         # (one for each energy/nHit bin). We make a separate transformation because different energy bins might have
