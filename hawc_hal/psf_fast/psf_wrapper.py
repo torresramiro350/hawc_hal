@@ -16,7 +16,7 @@ from typing_extensions import Self
 
 _INTEGRAL_OUTER_RADIUS = 15.0
 
-ndarray = NDArray[np.float64]
+ndarrf64 = NDArray[np.float64]
 
 
 # This is a class that, whatever you try to use it for, will raise an exception.
@@ -75,10 +75,9 @@ class PSFWrapper(object):
         # Prepare brightness interpolation
 
         if brightness_interp_x is None:
-            (
-                brightness_interp_x,
-                brightness_interp_y,
-            ) = self._prepare_brightness_interpolation_points()
+            (brightness_interp_x, brightness_interp_y) = (
+                self._prepare_brightness_interpolation_points()
+            )
 
         self._brightness_interp_x = brightness_interp_x
         self._brightness_interp_y = brightness_interp_y
@@ -182,9 +181,9 @@ class PSFWrapper(object):
 
         if len(xs) == 0:
             # Should never happen
-            assert (
-                len(ys) == 0
-            ), "Corrupted response file? A PSF has 0 xs values but more than 0 ys values"
+            assert len(ys) == 0, (
+                "Corrupted response file? A PSF has 0 xs values but more than 0 ys values"
+            )
 
             # An invalid PSF
             return InvalidPSF()
@@ -193,7 +192,7 @@ class PSFWrapper(object):
             return cls(xs, ys)
 
     @staticmethod
-    def psf_func(ang_dist: float, psf_best_fit_params: np.ndarray) -> float:
+    def psf_func(ang_dist: ndarrf64, psf_best_fit_params: np.ndarray) -> float:
         """Analytical definition of PSF
 
         :param ang_dist: Angular distances
@@ -220,7 +219,7 @@ class PSFWrapper(object):
         )
 
     @classmethod
-    def psf_eval(cls, fun_parameters: ndarray) -> InvalidPSF | Self:
+    def psf_eval(cls, fun_parameters: ndarrf64) -> InvalidPSF | Self:
         """Evaluate the PSF function and retrieve the expected counts
 
         :param fun_parameters: Best-fit parameters obtained from ROOT response file
@@ -239,7 +238,8 @@ class PSFWrapper(object):
             return InvalidPSF()
 
         radial_dists = np.logspace(-3, np.log10(_INTEGRAL_OUTER_RADIUS), 500)
-        expected_cnts = np.array([cls.psf_func(x, fun_parameters) for x in radial_dists])
+        # expected_cnts = np.array([cls.psf_func(x, fun_parameters) for x in radial_dists])
+        expected_cnts = cls.psf_func(radial_dists, psf_best_fit_params=fun_parameters)
 
         assert np.all(np.isfinite(radial_dists))
         assert np.all(np.isfinite(expected_cnts))
