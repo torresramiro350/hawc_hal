@@ -82,7 +82,7 @@ class ResponseMetaData:
 
     @staticmethod
     def get_energy_hist(
-        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
+        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str | int
     ) -> tuple[int, str, bh.Histogram]:
         """Retrieve the signal energy histogram from response file
 
@@ -93,27 +93,35 @@ class ResponseMetaData:
         :return: tuple of declination bin, analysis bin id, and energy histogram
         """
 
-        energy_hist_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/EnSig_dec{dec_id}_nh{bin_id}"
-        if response_ttree_directory.get(energy_hist_prefix, None) is not None:
-            energy_hist = response_ttree_directory[energy_hist_prefix]
-
-            return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
+        if str(bin_id).isdigit():
+            bin_prefix = str(bin_id).zfill(2)
+        else:
+            bin_prefix = bin_id
 
         energy_hist_prefix = (
-            f"dec_{dec_id:02d}/nh_{bin_id.zfill(2)}/EnSig_dec{dec_id}_nh{bin_id}"
+            f"dec_{dec_id:02d}/nh_{bin_prefix}/EnSig_dec{dec_id}_nh{bin_id}"
         )
 
-        if response_ttree_directory.get(energy_hist_prefix, None) is not None:
-            energy_hist = response_ttree_directory[energy_hist_prefix]
+        if response_ttree_directory.get(energy_hist_prefix, None) is None:
+            raise KeyError("Unknown binning scheme in response file")
 
-            return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
+            # energy_hist = response_ttree_directory[energy_hist_prefix]
+            #
+            # return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
 
-        raise KeyError("Unknown binning scheme in response file")
+        # energy_hist_prefix = (
+        #     f"dec_{dec_id:02d}/nh_{bin_id.zfill(2)}/EnSig_dec{dec_id}_nh{bin_id}"
+        # )
+
+        # if response_ttree_directory.get(energy_hist_prefix, None) is not None:
+        energy_hist = response_ttree_directory[energy_hist_prefix]
+
+        return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
 
     @staticmethod
     def get_psf_params(
-        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
-    ) -> tuple[int, str, ndarray]:
+        response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str | int
+    ) -> tuple[int, str | int, ndarray]:
         """Read the list of best-fit PSF parameters from response file
 
         :param response_ttree_directory: read only directory for response file
@@ -122,21 +130,30 @@ class ResponseMetaData:
         :raises KeyError: raised if the binning scheme is not recognized
         :return: tuple of declination bin, analysis bin id and best-fit PSF parameters
         """
-        psf_prefix = f"dec_{dec_id:02d}/nh_{bin_id}/PSF_dec{dec_id}_nh{bin_id}_fit"
+        if str(bin_id).isdigit():
+            bin_prefix = str(bin_id).zfill(2)
+        else:
+            bin_prefix = bin_id
 
-        if response_ttree_directory.get(psf_prefix, None) is not None:
-            psf_meta = response_ttree_directory[psf_prefix]
-            return dec_id, bin_id, psf_meta.member("fParams")  # type: ignore
+        psf_prefix = f"dec_{dec_id:02d}/nh_{bin_prefix}/PSF_dec{dec_id}_nh{bin_id}_fit"
 
-        psf_prefix = (
-            f"dec_{dec_id:02d}/nh_{bin_id.zfill(2)}/PSF_dec{dec_id}_nh{bin_id}_fit"
+        if response_ttree_directory.get(psf_prefix, None) is None:
+            raise KeyError("Unknown binning scheme")
+
+        # check for compatibility with ROOT 5
+        if response_ttree_directory[psf_prefix].member("fParams") is not None:
+            return dec_id, bin_id, response_ttree_directory[psf_prefix].member("fParams")
+
+        # check with compatibility with ROOT 6
+        if response_ttree_directory[psf_prefix].member("fFormula") is None:
+            raise KeyError("Best-fit parameters not stored in current file")
+        return (
+            dec_id,
+            bin_id,
+            response_ttree_directory[psf_prefix]
+            .member("fFormula")
+            .member("fClingParameters"),
         )
-        if response_ttree_directory.get(psf_prefix, None) is not None:
-            psf_meta = response_ttree_directory[psf_prefix]
-
-            return dec_id, bin_id, psf_meta.member("fParams")  # type: ignore
-
-        raise KeyError("Unknown binning scheme in response file")
 
     @property
     def declination_bins_lower(self) -> ndarray:
@@ -222,19 +239,24 @@ class ResponseMetaData:
         """
         if self.response_ttree_directory.get("LogLogSpectrum", None) is None:
             raise KeyError("LogLogSpectrum not found in response file")
+
+        # handles ROOT 5
         if self.response_ttree_directory["LogLogSpectrum"].member("fParams") is not None:
-            # handles ROOT 5
-            return np.array(
-                self.response_ttree_directory["LogLogSpectrum"].member("fParams")
+            return np.asarray(
+                self.response_ttree_directory["LogLogSpectrum"].member("fParams"),
+                dtype=np.float64,
             )
-        if self.response_ttree_directory["LogLogSpectrum"].member("fFormula") is not None:
-            # handles ROOT 6
-            return np.array(
-                self.response_ttree_directory["LogLogSpectrum"]
-                .member("fFormula")
-                .member("fClingParameters")
-            )
-        raise KeyError("LogLog parameters are not saved")
+
+        # handles ROOT 6
+        if self.response_ttree_directory["LogLogSpectrum"].member("fFormula") is None:
+            raise KeyError("LogLog parameters are not saved")
+
+        return np.asarray(
+            self.response_ttree_directory["LogLogSpectrum"]
+            .member("fFormula")
+            .member("fClingParameters"),
+            dtype=np.float64,
+        )
 
     # @property
     # def spectrum_shape(self) -> str:

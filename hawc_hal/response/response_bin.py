@@ -65,9 +65,9 @@ class EnergyBin:
 
     def _get_edges(self) -> None:
         """Read the lower, center and upper edges of the energy bins"""
-        self._lower_edges = np.array(self.signal_events.axes.edges[0][:-1])
-        self._centers = np.array(self.signal_events.axes.centers[0])
-        self._upper_edges = np.array(self.signal_events.axes.edges[0][1:])
+        self._lower_edges = np.asarray(self.signal_events.axes.edges[0][:-1])
+        self._centers = np.asarray(self.signal_events.axes.centers[0])
+        self._upper_edges = np.asarray(self.signal_events.axes.edges[0][1:])
 
     @property
     def get_differential_fluxes(self) -> np.ndarray:
