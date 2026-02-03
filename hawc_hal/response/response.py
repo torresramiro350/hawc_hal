@@ -2,7 +2,6 @@ from __future__ import absolute_import, division
 
 import collections
 import multiprocessing
-import os
 from builtins import zip
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,11 +23,11 @@ log = setup_logger(__name__)
 log.propagate = False
 _instances = {}
 
-ndarray = NDArray[np.float64]
+ndarrf64 = NDArray[np.float64]
 nstrarray = NDArray[np.bytes_]
 
 
-def hawc_response_factory(response_file_name: str, n_workers: int = 1):
+def hawc_response_factory(response_file_name: Path, n_workers: int = 1):
     """A factory function for the response which keeps a cache, so that the
     same response is not read over and over again.
 
@@ -50,7 +49,8 @@ def hawc_response_factory(response_file_name: str, n_workers: int = 1):
 
         # Use the extension of the file to figure out which kind of response it is (ROOT or HDF)
 
-        extension = os.path.splitext(response_file_name)[-1]
+        # extension = os.path.splitext(response_file_name)[-1]
+        extension = response_file_name.suffix
 
         if extension == ".root":
             new_instance = HAWCResponse.from_root_file(
@@ -112,7 +112,7 @@ class ResponseMetaData:
     @staticmethod
     def get_psf_params(
         response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
-    ) -> tuple[int, str | int, ndarray]:
+    ) -> tuple[int, str, ndarrf64]:
         """Read the list of best-fit PSF parameters from response file
 
         :param response_ttree_directory: read only directory for response file
@@ -147,7 +147,7 @@ class ResponseMetaData:
         )
 
     @property
-    def declination_bins_lower(self) -> ndarray:
+    def declination_bins_lower(self) -> ndarrf64:
         """Retrieve the simulation declination bin lower edges within ROOT response file
 
         :raises KeyError: DecBins/lowerEdge is not found in response file
@@ -164,7 +164,7 @@ class ResponseMetaData:
             raise KeyError("DecBins/lowerEdge not found in response file")
 
     @property
-    def declination_bins_upper(self) -> ndarray:
+    def declination_bins_upper(self) -> ndarrf64:
         """Retrieve the simulation declination bin upper edges within ROOT response file
 
         :raises KeyError: DecBins/upperEdge is not found in response file
@@ -181,7 +181,7 @@ class ResponseMetaData:
             raise KeyError("DecBins/upperEdge not found in response file")
 
     @property
-    def declination_bins_center(self) -> ndarray:
+    def declination_bins_center(self) -> ndarrf64:
         """Retrieve the simulation declination bin centers within ROOT response file
 
         :raises KeyError: DecBins/simdec not found in response file
@@ -222,7 +222,7 @@ class ResponseMetaData:
         raise KeyError("Unknown binning scheme in response file")
 
     @property
-    def log_log_params(self) -> ndarray:
+    def log_log_params(self) -> ndarrf64:
         """Retrieve the PSF best-fit params from ROOT file
 
         :raises KeyError: LogLogSpectrum not found in response file
@@ -251,7 +251,14 @@ class ResponseMetaData:
 
 
 class HAWCResponse:
-    def __init__(self, response_file_name, dec_bins, response_bins):
+    def __init__(
+        self,
+        response_file_name: Path,
+        dec_bins: list[tuple[list[float], ...]],
+        response_bins: collections.OrderedDict[
+            int, collections.OrderedDict[str, ResponseBin]
+        ],
+    ):
         self._response_file_name = response_file_name
         self._dec_bins = dec_bins
         self._response_bins = response_bins
