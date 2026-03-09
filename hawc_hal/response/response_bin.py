@@ -63,47 +63,35 @@ class EnergyBin:
 
         raise ValueError(f"Unknown spectral shape with {len(parameters)} parameters")
 
-    def _get_edges(self) -> None:
-        """Read the lower, center and upper edges of the energy bins"""
-        self._lower_edges = np.asarray(self.signal_events.axes.edges[0][:-1])
-        self._centers = np.asarray(self.signal_events.axes.centers[0])
-        self._upper_edges = np.asarray(self.signal_events.axes.edges[0][1:])
-
     @property
     def get_differential_fluxes(self) -> np.ndarray:
         """Calculate the differential fluxes with log energy values"""
-        self._get_edges()
         differential_fluxes = self._log_log_spectrum(self._centers)
-        # differential_fluxes = np.array(
-        #     [self._log_log_spectrum(log_energy) for log_energy in self._centers]
-        # )
 
         return LOG_BASE**differential_fluxes
 
     @property
     def get_energy_bin_low(self) -> np.ndarray:
         """Energy bins lower edge"""
+        self._lower_edges = np.asarray(self.signal_events.axes.edges[0][:-1])
         return LOG_BASE**self._lower_edges
 
     @property
     def get_energy_bin_upper(self) -> np.ndarray:
         """Energy bins upper edge"""
+        self._upper_edges = np.asarray(self.signal_events.axes.edges[0][1:])
         return LOG_BASE**self._upper_edges
 
     @property
     def get_energy_bin_centers(self) -> np.ndarray:
         """Energy bins center edge"""
+        self._centers = np.asarray(self.signal_events.axes.centers[0])
         return LOG_BASE**self._centers
 
     @property
     def get_signal_events(self) -> np.ndarray:
         """Retrieve simulated signal events"""
         return self.signal_events.values()
-
-    # @property
-    # def get_bkg_events(self) -> np.ndarray:
-    #     """Retrieve simulated background events"""
-    #     return self.bkg_events.values()
 
     @property
     def get_bin_name(self) -> str:
