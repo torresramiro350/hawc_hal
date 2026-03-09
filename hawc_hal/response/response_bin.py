@@ -64,26 +64,26 @@ class EnergyBin:
         raise ValueError(f"Unknown spectral shape with {len(parameters)} parameters")
 
     @property
-    def get_differential_fluxes(self) -> np.ndarray:
+    def differential_fluxes(self) -> np.ndarray:
         """Calculate the differential fluxes with log energy values"""
-        differential_fluxes = self._log_log_spectrum(self._centers)
+        differential_fluxes = self._log_log_spectrum(np.log10(self.energy_bin_centers))
 
         return LOG_BASE**differential_fluxes
 
     @property
-    def get_energy_bin_low(self) -> np.ndarray:
+    def energy_bin_low(self) -> np.ndarray:
         """Energy bins lower edge"""
         self._lower_edges = np.asarray(self.signal_events.axes.edges[0][:-1])
         return LOG_BASE**self._lower_edges
 
     @property
-    def get_energy_bin_upper(self) -> np.ndarray:
+    def energy_bin_upper(self) -> np.ndarray:
         """Energy bins upper edge"""
         self._upper_edges = np.asarray(self.signal_events.axes.edges[0][1:])
         return LOG_BASE**self._upper_edges
 
     @property
-    def get_energy_bin_centers(self) -> np.ndarray:
+    def energy_bin_centers(self) -> np.ndarray:
         """Energy bins center edge"""
         self._centers = np.asarray(self.signal_events.axes.centers[0])
         return LOG_BASE**self._centers
@@ -188,10 +188,10 @@ class ResponseBin:
 
         # Now let's see what has been simulated, i.e., the differential flux
         # at the center of each bin_name of the en_sig histogram
-        sim_differential_photon_fluxes = energy_bin.get_differential_fluxes
-        sim_energy_bin_low = energy_bin.get_energy_bin_low
-        sim_energy_bin_centers = energy_bin.get_energy_bin_centers
-        sim_energy_bin_high = energy_bin.get_energy_bin_upper
+        sim_differential_photon_fluxes = energy_bin.differential_fluxes
+        sim_energy_bin_low = energy_bin.energy_bin_low
+        sim_energy_bin_centers = energy_bin.energy_bin_centers
+        sim_energy_bin_high = energy_bin.energy_bin_upper
 
         sim_signal_events_per_bin = energy_bin.get_signal_events
 
