@@ -43,7 +43,7 @@ def _init_worker(file_path: Path, legacy: bool, indices: ndarri64 | None = None)
     :param indices: healpix indices specifying ROI
     """
     global _worker_file, _worker_legacy, _worker_indices
-    _worker_file = uproot.open(file_path)
+    _worker_file = uproot.open(file_path, handler=uproot.MemmapSource)
     _worker_legacy = legacy
     _worker_indices = indices
 
