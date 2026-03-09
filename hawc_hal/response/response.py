@@ -24,8 +24,24 @@ log = setup_logger(__name__)
 log.propagate = False
 _instances = {}
 
-ndarray = NDArray[np.float64]
+ndarrf64 = NDArray[np.float64]
 nstrarray = NDArray[np.bytes_]
+
+_worker_response_file: uproot.ReadOnlyDirectory | None = None
+
+
+def _init_worker(file_path: Path) -> None:
+    global _worker_response_file
+    _worker_response_file = uproot.open(file_path)
+
+
+def _read_dec_bin(args) -> tuple[int, str, bh.Histogram, ndarrf64]:
+    dec_id, bin_id = args
+    md = ResponseMetaData(_worker_response_file)
+    energy_hist = md.get_energy_hist(_worker_response_file, dec_id, bin_id)
+    psf_params = md.get_psf_params(_worker_response_file, dec_id, bin_id)
+
+    return (dec_id, bin_id, energy_hist, psf_params)
 
 
 def hawc_response_factory(response_file_name: str, n_workers: int = 1):
@@ -83,7 +99,7 @@ class ResponseMetaData:
     @staticmethod
     def get_energy_hist(
         response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
-    ) -> tuple[int, str, bh.Histogram]:
+    ) -> bh.Histogram:
         """Retrieve the signal energy histogram from response file
 
         :param response_ttree_directory:  read only directory for response file
@@ -107,12 +123,12 @@ class ResponseMetaData:
 
         energy_hist = response_ttree_directory[energy_hist_prefix]
 
-        return dec_id, bin_id, energy_hist.to_boost()  # type: ignore
+        return energy_hist.to_boost()
 
     @staticmethod
     def get_psf_params(
         response_ttree_directory: uproot.ReadOnlyDirectory, dec_id: int, bin_id: str
-    ) -> tuple[int, str | int, ndarray]:
+    ) -> ndarrf64:
         """Read the list of best-fit PSF parameters from response file
 
         :param response_ttree_directory: read only directory for response file
@@ -139,15 +155,13 @@ class ResponseMetaData:
         if response_ttree_directory[psf_prefix].member("fFormula") is None:
             raise KeyError("Best-fit parameters not stored in current file")
         return (
-            dec_id,
-            bin_id,
             response_ttree_directory[psf_prefix]
             .member("fFormula")
-            .member("fClingParameters"),
+            .member("fClingParameters")
         )
 
     @property
-    def declination_bins_lower(self) -> ndarray:
+    def declination_bins_lower(self) -> ndarrf64:
         """Retrieve the simulation declination bin lower edges within ROOT response file
 
         :raises KeyError: DecBins/lowerEdge is not found in response file
@@ -156,15 +170,14 @@ class ResponseMetaData:
         if self.response_ttree_directory.get("DecBins/lowerEdge", None) is not None:
             return (
                 self.response_ttree_directory["DecBins/lowerEdge"]
-                .array()  # type: ignore
-                .to_numpy()
+                .array(library="np")
                 .astype(np.float64)
             )
         else:
             raise KeyError("DecBins/lowerEdge not found in response file")
 
     @property
-    def declination_bins_upper(self) -> ndarray:
+    def declination_bins_upper(self) -> ndarrf64:
         """Retrieve the simulation declination bin upper edges within ROOT response file
 
         :raises KeyError: DecBins/upperEdge is not found in response file
@@ -173,15 +186,14 @@ class ResponseMetaData:
         if self.response_ttree_directory.get("DecBins/upperEdge", None) is not None:
             return (
                 self.response_ttree_directory["DecBins/upperEdge"]
-                .array()  # type: ignore
-                .to_numpy()
+                .array(library="np")
                 .astype(np.float64)
             )
         else:
             raise KeyError("DecBins/upperEdge not found in response file")
 
     @property
-    def declination_bins_center(self) -> ndarray:
+    def declination_bins_center(self) -> ndarrf64:
         """Retrieve the simulation declination bin centers within ROOT response file
 
         :raises KeyError: DecBins/simdec not found in response file
@@ -190,8 +202,7 @@ class ResponseMetaData:
         if self.response_ttree_directory.get("DecBins/simdec", None) is not None:
             return (
                 self.response_ttree_directory["DecBins/simdec"]
-                .array()  # type: ignore
-                .to_numpy()
+                .array(library="np")
                 .astype(np.float64)
             )
         else:
@@ -207,22 +218,20 @@ class ResponseMetaData:
         if self.response_ttree_directory.get("AnalysisBins/name", None) is not None:
             return (
                 self.response_ttree_directory["AnalysisBins/name"]
-                .array()
-                .to_numpy()
+                .array(library="np")
                 .astype(dtype=str)
             )
         if self.response_ttree_directory.get("AnalysisBins/id", None) is not None:
             return (
                 self.response_ttree_directory["AnalysisBins/id"]
-                .array()
-                .to_numpy()
+                .array(library="np")
                 .astype(dtype=str)
             )
 
         raise KeyError("Unknown binning scheme in response file")
 
     @property
-    def log_log_params(self) -> ndarray:
+    def log_log_params(self) -> ndarrf64:
         """Retrieve the PSF best-fit params from ROOT file
 
         :raises KeyError: LogLogSpectrum not found in response file
@@ -353,10 +362,10 @@ class HAWCResponse:
 
         return cls(response_file_name, dec_bins, response_bins)
 
-    @staticmethod
-    def create_dict_from_results(results):
-        """Handles the calculation of the results from the multiprocessing pool"""
-        return {(result[0], result[1]): result[2] for result in results}
+    # @staticmethod
+    # def create_dict_from_results(results):
+    #     """Handles the calculation of the results from the multiprocessing pool"""
+    #     return {(result[0], result[1]): result[2] for result in results}
 
     @classmethod
     def from_root_file(cls, response_file_name: Path, n_workers: int = 1):
@@ -386,18 +395,7 @@ class HAWCResponse:
                 f"Response {response_file_name} does not exist or is not readable"
             )
 
-        with (
-            multiprocessing.Pool(processes=n_workers) as pool,
-            uproot.open(
-                response_file_name,
-                handler=uproot.MemmapSource,
-                num_fallback_workers=n_workers,
-            ) as response_file_directory,
-        ):
-            # the handler for MemmapSource loads the file as it's needed
-            # suggested as the best for large local files
-            # otherwise use MultithreadedFileSource for remote files
-            # which requires setting the option for use_threads to True
+        with uproot.open(response_file_name) as response_file_directory:
             resp_metadata = ResponseMetaData(response_file_directory)
 
             # NOTE:Get the Response function basic information
@@ -407,22 +405,24 @@ class HAWCResponse:
             dec_bins_upper_edge = resp_metadata.declination_bins_upper
             dec_bins_sim = resp_metadata.declination_bins_center
 
-            dec_bins = list(zip(dec_bins_lower_edge, dec_bins_sim, dec_bins_upper_edge))
-            number_of_dec_bins = len(dec_bins_sim)
+        response_args = [
+            (dec_id, bin_id)
+            for dec_id in range(dec_bins_sim.size)
+            for bin_id in analysis_bins_arr
+        ]
 
-            args = [
-                (response_file_directory, dec_id, bin_id)
-                for dec_id in range(number_of_dec_bins)
-                for bin_id in analysis_bins_arr
-            ]
+        with multiprocessing.Pool(
+            processes=n_workers, initializer=_init_worker, initargs=(response_file_name,)
+        ) as pool:
+            results = list(pool.map(_read_dec_bin, response_args))
 
-            results = list(pool.starmap(resp_metadata.get_energy_hist, args))
-            # results_bkg = list(pool.starmap(resp_metadata.get_energy_bkg_hist, args))
-            psf_param = list(pool.starmap(resp_metadata.get_psf_params, args))
-
-        energy_hists = cls.create_dict_from_results(results)
-        # energy_bkgs = cls.create_dict_from_results(results_bkg)
-        psf_metas = cls.create_dict_from_results(psf_param)
+        dec_bins = list(zip(dec_bins_lower_edge, dec_bins_sim, dec_bins_upper_edge))
+        number_of_dec_bins = len(dec_bins_sim)
+        energy_hists = {}
+        psf_metas = {}
+        for dec_id, bin_id, energy_hist, psf_param in results:
+            energy_hists[(dec_id, bin_id)] = energy_hist
+            psf_metas[(dec_id, bin_id)] = psf_param
 
         # NOTE: Now we have all the info we need to build the response
         # TODO: read only the declinations needed for the ROI
@@ -433,7 +433,6 @@ class HAWCResponse:
 
             for bin_id in analysis_bins_arr:
                 current_hist = energy_hists[(dec_id, bin_id)]
-                # current_hist_bkg = energy_bkgs[(dec_id, bin_id)]
                 current_psf_params = psf_metas[(dec_id, bin_id)]
 
                 this_response_bin = ResponseBin.from_ttree(

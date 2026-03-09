@@ -5,7 +5,7 @@ import multiprocessing
 from builtins import str
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import TypeAlias as T
 
 import healpy as hp
 import numpy as np
@@ -23,6 +23,52 @@ from .data_analysis_bin import DataAnalysisBin
 
 log = setup_logger(__name__)
 log.propagate = False
+
+ndarri64: T = NDArray[np.int64]
+ndarrf64: T = NDArray[np.float64]
+
+# NOTE: define variables for multiprocessing
+_worker_file: Path | None = None
+_worker_legacy: bool | None = None
+_worker_indices: ndarri64 | None = None
+
+
+def _init_worker(file_path: Path, legacy: bool, indices: ndarri64 | None = None):
+    """
+    Expose variables to multiprocessing and open ROOT file here to avoid pickling
+    issues.
+
+    :param file_path: Maptree pathfile
+    :param legacy: Specifies whether using old names for bins
+    :param indices: healpix indices specifying ROI
+    """
+    global _worker_file, _worker_legacy, _worker_indices
+    _worker_file = uproot.open(file_path)
+    _worker_legacy = legacy
+    _worker_indices = indices
+
+
+def _read_bin(bin_id: str) -> tuple[str, ndarrf64, ndarrf64]:
+    """Load the data/bkg maps from the maptree file
+
+    :param bin_id: Analysis bin id
+    :return: tuple of analysis bin id, data and background maps
+    """
+    global _worker_file, _worker_legacy, _worker_indices
+
+    current_bin_id = str(bin_id).zfill(2) if _worker_legacy else bin_id
+
+    counts_full = _worker_file[f"nHit{current_bin_id}/data/count"].array(library="np")  # ty:ignore[not-subscriptable]
+    bkg_full = _worker_file[f"nHit{current_bin_id}/bkg/count"].array(library="np")  # ty:ignore[not-subscriptable]
+
+    # NOTE: load only the pixels within the ROI
+    if _worker_indices is not None:
+        counts = counts_full[_worker_indices]
+        bkg = bkg_full[_worker_indices]
+        return bin_id, counts, bkg
+
+    # load full sky
+    return bin_id, counts_full, bkg_full
 
 
 @dataclass
@@ -85,83 +131,81 @@ class MaptreeMetaData:
         return hp.pixelfunc.npix2nside(self._bkg_npixels)
 
     @property
-    def ndurations(self) -> NDArray[np.float64]:
+    def ndurations(self) -> ndarrf64:
         """Total duration of all bins within the maptree"""
         return self.maptree_ttree_directory["BinInfo/totalDuration"].array().to_numpy()
 
 
-def get_array_from_file(
-    legacy_convention: bool,
-    bin_id: str,
-    map_infile: uproot.ReadOnlyDirectory,
-    hpx_map: NDArray[np.float64],
-    roi: Optional[HealpixConeROI | HealpixMapROI] = None,
-) -> tuple[str, NDArray[np.float64]]:
-    """Load the signal array from a ROOT maptree
-
-    :param legacy_convention: True if there is a zero prefix in the analysis bin name
-    :type legacy_convention: bool
-    :param bin_id: Analysis bin from the maptree file
-    :type bin_id: str
-    :param map_infile: Uproot object that handles the reading of the maptree file
-    :type map_infile: uproot.ReadOnlyDirectory
-    :param hpx_map: Healpix map array that specifies the active pixels within the ROI
-    :type hpx_map: NDArray[np.float64]
-    :param roi: ROI instance specyfing the region of interest only load a partial
-    segment of the map. If set to None, it loads the full sky map (more memory intensive)
-    :type roi: Optional[HealpixConeROI | HealpixMapROI], optional
-    :return: Returns teh active analysis bin with its corresponding signal array.
-    :rtype: tuple[str, NDArray[np.float64]]
-    """
-
-    current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
-
-    if roi is not None:
-        # NOTE: load only the pixels within the ROI
-        return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array().to_numpy()[
-            hpx_map > 0.0
-        ]
-
-    return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array().to_numpy()
+# def get_array_from_file(
+#     legacy_convention: bool,
+#     bin_id: str,
+#     map_infile: uproot.ReadOnlyDirectory,
+#     active_pixels: ndarri64 | None = None,
+# ) -> tuple[str, NDArray[np.float64]]:
+#     """Load the signal array from a ROOT maptree
+#
+#     :param legacy_convention: True if there is a zero prefix in the analysis bin name
+#     :type legacy_convention: bool
+#     :param bin_id: Analysis bin from the maptree file
+#     :type bin_id: str
+#     :param map_infile: Uproot object that handles the reading of the maptree file
+#     :type map_infile: uproot.ReadOnlyDirectory
+#     :type active_pixels: active pixels defined by ROI
+#     :type active_pixels: ndarri64, optional
+#     :return: Returns the active analysis bin with its corresponding signal array.
+#     :rtype: tuple[str, NDArray[np.float64]]
+#     """
+#
+#     current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
+#
+#     if active_pixels is not None:
+#         # NOTE: load only the pixels within the ROI
+#         return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array(library="np")[
+#             active_pixels
+#         ]
+#
+#     return bin_id, map_infile[f"nHit{current_bin_id}/data/count"].array(library="np")
 
 
-def get_bkg_array_from_file(
-    legacy_convention: bool,
-    bin_id: str,
-    map_infile: uproot.ReadOnlyDirectory,
-    hpx_map: NDArray[np.float64],
-    roi: Optional[HealpixConeROI | HealpixMapROI] = None,
-) -> tuple[str, NDArray[np.float64]]:
-    """Load the background array from a ROOT maptree file
-
-    :param legacy_convention: boolean to check if there is a zero prefix
-    in the analysis bin name
-    :type legacy_convention: bool
-    :param bin_id: Analysis bin from the maptree file
-    :type bin_id: str
-    :param map_infile: uproot.ReadOnlyDirectory object that handles the
-    reading of the maptree file
-    :type map_infile: uproot.ReadOnlyDirectory
-    :param hpx_map: Healpix map array that specifies the active pixels within the ROI
-    :type hpx_map: NDArray[np.float64]
-    :param roi: ROI object specifying whether there is an active ROI if None,
-    then the whole sky is loaded, by default None
-    :type roi: Optional[HealpixConeROI | HealpixMapROI], optional
-    :return: Returns the active analysis bin with its corresponding background array
-    """
-    current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
-    if roi is not None:
-        # NOTE: load only the pixels within the ROI
-        return bin_id, map_infile[f"nHit{current_bin_id}/bkg/count"].array().to_numpy()[
-            hpx_map > 0.0
-        ]
-
-    return bin_id, map_infile[f"nHit{current_bin_id}/bkg/count"].array().to_numpy()
+# def get_bkg_array_from_file(
+#     legacy_convention: bool,
+#     bin_id: str,
+#     map_infile: uproot.ReadOnlyDirectory,
+#     active_pixels: ndarri64 | None = None,
+#     # hpx_map: NDArray[np.float64],
+#     # roi: Optional[HealpixConeROI | HealpixMapROI] = None,
+# ) -> tuple[str, NDArray[np.float64]]:
+#     """Load the background array from a ROOT maptree file
+#
+#     :param legacy_convention: boolean to check if there is a zero prefix
+#     in the analysis bin name
+#     :type legacy_convention: bool
+#     :param bin_id: Analysis bin from the maptree file
+#     :type bin_id: str
+#     :param map_infile: uproot.ReadOnlyDirectory object that handles the
+#     reading of the maptree file
+#     :type map_infile: uproot.ReadOnlyDirectory
+#     :param hpx_map: Healpix map array that specifies the active pixels within the ROI
+#     :type hpx_map: NDArray[np.float64]
+#     :param roi: ROI object specifying whether there is an active ROI if None,
+#     then the whole sky is loaded, by default None
+#     :type roi: Optional[HealpixConeROI | HealpixMapROI], optional
+#     :return: Returns the active analysis bin with its corresponding background array
+#     """
+#     current_bin_id = str(bin_id).zfill(2) if legacy_convention else bin_id
+#
+#     if active_pixels is not None:
+#         # NOTE: load only the pixels within the ROI
+#         return bin_id, map_infile[f"nHit{current_bin_id}/bkg/count"].array(library="np")[
+#             active_pixels
+#         ]
+#
+#     return bin_id, map_infile[f"nHit{current_bin_id}/bkg/count"].array(library="np")
 
 
 def from_root_file(
     map_tree_file: Path,
-    roi: Union[HealpixConeROI, HealpixMapROI],
+    roi: HealpixConeROI | HealpixMapROI,
     transits: float,
     n_workers: int,
     scheme: int = 0,
@@ -180,8 +224,6 @@ def from_root_file(
     the number of transits
     :rtype: tuple[dict[str, DataAnalysisBin], float]
     """
-
-    # from ..root_handler import open_ROOT_file, root_numpy, tree_to_ndarray
 
     map_tree_file = sanitize_filename(map_tree_file)
 
@@ -207,18 +249,7 @@ def from_root_file(
     # cannot perform operations on histrograms
 
     # Read the maptree
-    with (
-        multiprocessing.Pool(processes=n_workers) as pool,
-        uproot.open(
-            map_tree_file.as_posix(),
-            handler=uproot.MemmapSource,
-            num_fallback_workers=n_workers,
-        ) as map_infile,
-    ):
-        # the handler for MemmapSource loads the file as it's needed
-        # suggested as the best for large local files
-        # otherwise use MultithreadedFileSource for remote files
-        # which requires setting the option for use_threads to True
+    with uproot.open(map_tree_file) as map_infile:
         log.info("Reading Maptree!")
 
         maptree_metadata = MaptreeMetaData(map_infile)
@@ -229,38 +260,35 @@ def from_root_file(
 
         nside_cnt: int = maptree_metadata.nside_cnt
         nside_bkg: int = maptree_metadata.nside_bkg
-        # binning_scheme_name: str = maptree_metadata.binning_scheme
 
-        assert nside_cnt == nside_bkg, (
-            "Nside value needs to be the same for counts and bkg. maps"
-        )
+    assert nside_cnt == nside_bkg, (
+        "Nside value needs to be the same for counts and bkg. maps"
+    )
 
-        healpix_map_active = np.zeros(hp.nside2npix(nside_cnt))
+    # NOTE: read only the pixels within the ROI
+    active_pixels: ndarri64 | None = None
 
-        # NOTE: read only the pixels within the ROI
-        if roi is not None:
-            active_pixels = roi.active_pixels(
-                nside_cnt, system="equatorial", ordering="RING"
-            )
+    if roi is not None:
+        active_pixels = roi.active_pixels(nside_cnt, system="equatorial", ordering="RING")
 
-            healpix_map_active[active_pixels] = 1.0
+    init_args = (map_tree_file, legacy_convention, active_pixels)
 
-        signal_data_info = [
-            (legacy_convention, name, map_infile, healpix_map_active, roi)
-            for name in data_bins_labels
-        ]
-
-        # Launch processes to speed up the reading of the maptree file
+    # Launch processes to speed up the reading of the maptree file
+    with multiprocessing.Pool(
+        processes=n_workers, initializer=_init_worker, initargs=init_args
+    ) as pool:
         # NOTE: The number of workers is suggested to be kept equal one less
         # than the number of available cores in the system.
+        results = list(pool.map(_read_bin, data_bins_labels))
 
-        result_data = list(pool.starmap(get_array_from_file, signal_data_info))
-        result_bkg = list(pool.starmap(get_bkg_array_from_file, signal_data_info))
+    # Processes are not guaranteed to preserve order of analysis bin names
+    # Organize them into a dictionary for proper readout
+    data_dir_array: dict[str, ndarrf64] = {}
+    bkg_dir_array: dict[str, ndarrf64] = {}
 
-        # Processes are not guaranteed to preserve order of analysis bin names
-        # Organize them into a dictionary for proper readout
-        data_dir_array = dict(result_data)
-        bkg_dir_array = dict(result_bkg)
+    for bin_id, data, bkg in results:
+        data_dir_array[bin_id] = data
+        bkg_dir_array[bin_id] = bkg
 
     # The map-maker underestimate the livetime of bins with low statistic
     # by removing time intervals with zero events. Therefore, the best
