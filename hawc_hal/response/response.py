@@ -149,7 +149,7 @@ class ResponseMetaData:
 
         # check for compatibility with ROOT 5
         if response_ttree_directory[psf_prefix].member("fParams") is not None:
-            return dec_id, bin_id, response_ttree_directory[psf_prefix].member("fParams")
+            return response_ttree_directory[psf_prefix].member("fParams")
 
         # check with compatibility with ROOT 6
         if response_ttree_directory[psf_prefix].member("fFormula") is None:
