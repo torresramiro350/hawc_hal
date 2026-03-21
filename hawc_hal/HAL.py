@@ -4,14 +4,13 @@ import collections
 import contextlib
 import copy
 from builtins import range, str
-from typing import Union
 
 import astromodels
 import healpy as hp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from astromodels import Parameter
+from astromodels import Model, Parameter
 from astropy.convolution import Gaussian2DKernel
 from astropy.convolution import convolve_fft as convolve
 from numpy.typing import NDArray
@@ -119,7 +118,7 @@ class HAL(PluginPrototype):
         # python3 new way of doing things
         super().__init__(name, self._nuisance_parameters)
 
-        self._likelihood_model = None
+        self._likelihood_model: Model | None = None
 
         # These lists will contain the maps for the point sources
         self._convolved_point_sources = ConvolvedSourcesContainer()
@@ -180,6 +179,7 @@ class HAL(PluginPrototype):
 
         # Integration method for the PSF (see psf_integration_method)
         self._psf_integration_method = "exact"
+        self._inv_pixel_area = 1.0 / self._flat_sky_projection.project_plane_pixel_area
 
     @property
     def psf_integration_method(self):
@@ -243,6 +243,11 @@ class HAL(PluginPrototype):
             self._saturated_model_like_per_maptree[bin_label] = (
                 log_likelihood(obs, bkg, sat_model) - this_log_factorial
             )
+        self._log_like_bias = {
+            bin_id: self._saturated_model_like_per_maptree[bin_id]
+            + self._log_factorials[bin_id]
+            for bin_id in self._log_factorials
+        }
 
     def get_saturated_model_likelihood(self):
         """
@@ -801,7 +806,7 @@ class HAL(PluginPrototype):
         """
         return self._n_workers
 
-    def get_log_like(self, individual_bins=False, return_null=False):
+    def get_log_like(self, individual_bins: bool = False, return_null: bool = False):
         """
         Return the value of the log-likelihood with the current values for the
         parameters
@@ -827,9 +832,10 @@ class HAL(PluginPrototype):
 
         # This will hold the total log-likelihood
 
-        total_log_like = 0
-        log_like_per_bin = {}
+        total_log_like: float = 0
+        log_like_per_bin: dict[str, float] = {}
 
+        bkg_renorm = list(self._nuisance_parameters.values())[0].value
         for bin_id in self._active_planes:
             data_analysis_bin = self._maptree[bin_id]
 
@@ -837,25 +843,28 @@ class HAL(PluginPrototype):
                 data_analysis_bin, bin_id, n_point_sources, n_ext_sources
             )
             # Now compare with observation
-            bkg_renorm = list(self._nuisance_parameters.values())[0].value
+            # bkg_renorm = list(self._nuisance_parameters.values())[0].value
 
             obs: np.ndarray = data_analysis_bin.observation_map.as_partial()
             bkg: np.ndarray = data_analysis_bin.background_map.as_partial() * bkg_renorm
 
             this_pseudo_log_like = log_likelihood(obs, bkg, this_model_map_hpx)
 
-            total_log_like += (
-                this_pseudo_log_like
-                - self._log_factorials[bin_id]
-                - self._saturated_model_like_per_maptree[bin_id]
-            )
+            # total_log_like += (
+            #     this_pseudo_log_like
+            #     - self._log_factorials[bin_id]
+            #     - self._saturated_model_like_per_maptree[bin_id]
+            # )
+            this_bin_log_like = this_pseudo_log_like - self._log_like_bias[bin_id]
+            total_log_like += this_bin_log_like
 
             if individual_bins is True:
-                log_like_per_bin[bin_id] = (
-                    this_pseudo_log_like
-                    - self._log_factorials[bin_id]
-                    - self._saturated_model_like_per_maptree[bin_id]
-                )
+                # log_like_per_bin[bin_id] = (
+                #     this_pseudo_log_like
+                #     - self._log_factorials[bin_id]
+                #     - self._saturated_model_like_per_maptree[bin_id]
+                # )
+                log_like_per_bin[bin_id] = this_bin_log_like
 
         if individual_bins is True:
             for k in log_like_per_bin:
@@ -947,81 +956,125 @@ class HAL(PluginPrototype):
         return self._clone[0]
 
     def _get_expectation(
-        self, data_analysis_bin, energy_bin_id, n_point_sources, n_ext_sources
-    ):
+        self,
+        data_analysis_bin: DataAnalysisBin,
+        energy_bin_id: str,
+        n_point_sources: int,
+        n_ext_sources: int,
+    ) -> NDArray[np.float64]:
+        """Compute the expectation from model
+
+        :param data_analysis_bin: observation maps
+        :param energy_bin_id: analysis bin id
+        :param n_point_sources: number of point sources in model instance
+        :param n_ext_sources: number of extended sources in model instance
+        :return: healpix projected map with expected number of events
+        """
         # Compute the expectation from the model
 
         this_model_map = None
+        n_transits = data_analysis_bin.n_transits
+        psf_int_method = self._psf_integration_method
 
-        for pts_id in range(n_point_sources):
-            this_conv_pnt_src: ConvolvedPointSource = self._convolved_point_sources[
-                pts_id
+        if n_point_sources > 0:
+            pnt_src_maps = [
+                self._convolved_point_sources[pts_id].get_source_map(
+                    energy_bin_id, tag=None, psf_integration_method=psf_int_method
+                )
+                for pts_id in range(n_point_sources)
+            ]
+            this_model_map = np.sum(pnt_src_maps, axis=0) * n_transits
+        else:
+            this_model_map = None
+
+        if n_ext_sources > 0:
+            ext_src_maps = [
+                self._convolved_ext_sources[ext_id].get_source_map(energy_bin_id)
+                for ext_id in range(n_ext_sources)
             ]
 
-            expectation_per_transit = this_conv_pnt_src.get_source_map(
-                energy_bin_id,
-                tag=None,
-                psf_integration_method=self._psf_integration_method,
-            )
-
-            expectation_from_this_source = (
-                expectation_per_transit * data_analysis_bin.n_transits
+            this_ext_model_map = np.sum(ext_src_maps)
+            convolved_ext = (
+                self._psf_convolutors[energy_bin_id].extended_source_image(
+                    this_ext_model_map
+                )
+                * n_transits
             )
 
             if this_model_map is None:
-                # First addition
-
-                this_model_map = expectation_from_this_source
-
+                this_model_map = convolved_ext
             else:
-                this_model_map += expectation_from_this_source
+                this_model_map += convolved_ext
+
+        # for pts_id in range(n_point_sources):
+        #     this_conv_pnt_src: ConvolvedPointSource = self._convolved_point_sources[
+        #         pts_id
+        #     ]
+        #
+        #     expectation_per_transit = this_conv_pnt_src.get_source_map(
+        #         energy_bin_id,
+        #         tag=None,
+        #         psf_integration_method=self._psf_integration_method,
+        #     )
+        #
+        #     expectation_from_this_source = expectation_per_transit * n_transits
+        #
+        #     if this_model_map is None:
+        #         # First addition
+        #
+        #         this_model_map = expectation_from_this_source
+        #
+        #     else:
+        #         this_model_map += expectation_from_this_source
 
         # Now process extended sources
-        if n_ext_sources > 0:
-            this_ext_model_map = None
-
-            for ext_id in range(n_ext_sources):
-                this_conv_src: Union[
-                    ConvolvedExtendedSource2D, ConvolvedExtendedSource3D
-                ] = self._convolved_ext_sources[ext_id]
-
-                expectation_per_transit = this_conv_src.get_source_map(energy_bin_id)
-
-                if this_ext_model_map is None:
-                    # First addition
-
-                    this_ext_model_map = expectation_per_transit
-
-                else:
-                    this_ext_model_map += expectation_per_transit
-
-            # Now convolve with the PSF
-            if this_model_map is None:
-                # Only extended sources
-
-                this_model_map = (
-                    self._psf_convolutors[energy_bin_id].extended_source_image(
-                        this_ext_model_map
-                    )
-                    * data_analysis_bin.n_transits
-                )
-
-            else:
-                this_model_map += (
-                    self._psf_convolutors[energy_bin_id].extended_source_image(
-                        this_ext_model_map
-                    )
-                    * data_analysis_bin.n_transits
-                )
+        # if n_ext_sources > 0:
+        #     this_ext_model_map = None
+        #
+        #     for ext_id in range(n_ext_sources):
+        #         this_conv_src: ConvolvedExtendedSource2D | ConvolvedExtendedSource3D = (
+        #             self._convolved_ext_sources[ext_id]
+        #         )
+        #
+        #         expectation_per_transit = this_conv_src.get_source_map(energy_bin_id)
+        #
+        #         if this_ext_model_map is None:
+        #             # First addition
+        #
+        #             this_ext_model_map = expectation_per_transit
+        #
+        #         else:
+        #             this_ext_model_map += expectation_per_transit
+        #
+        #     # Now convolve with the PSF
+        #     if this_model_map is None:
+        #         # Only extended sources
+        #
+        #         this_model_map = (
+        #             self._psf_convolutors[energy_bin_id].extended_source_image(
+        #                 this_ext_model_map
+        #             )
+        #             * n_transits
+        #         )
+        #
+        #     else:
+        #         this_model_map += (
+        #             self._psf_convolutors[energy_bin_id].extended_source_image(
+        #                 this_ext_model_map
+        #             )
+        #             * n_transits
+        #         )
 
         # Now transform from the flat sky projection to HEALPiX
 
         if this_model_map is not None:
             # First divide for the pixel area because we need to interpolate brightness
             # this_model_map = old_div(this_model_map, self._flat_sky_projection.project_plane_pixel_area)
-            this_model_map = (
-                this_model_map / self._flat_sky_projection.project_plane_pixel_area
-            )
+            # this_model_map = (
+            #     this_model_map / self._flat_sky_projection.project_plane_pixel_area
+            # )
+            # this_model_map = this_model_map * self._inv_pixel_area
+            this_model_map *= self._inv_pixel_area
 
             this_model_map_hpx = self._flat_sky_to_healpix_transform[energy_bin_id](
                 this_model_map, fill_value=0.0
