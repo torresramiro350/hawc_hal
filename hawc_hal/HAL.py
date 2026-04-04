@@ -993,7 +993,7 @@ class HAL(PluginPrototype):
                 for ext_id in range(n_ext_sources)
             ]
 
-            this_ext_model_map = np.sum(ext_src_maps)
+            this_ext_model_map = np.sum(ext_src_maps, axis=0)
             convolved_ext = (
                 self._psf_convolutors[energy_bin_id].extended_source_image(
                     this_ext_model_map
